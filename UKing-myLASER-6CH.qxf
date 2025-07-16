@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE FixtureDefinition>
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
+ <Creator>
+  <Name>Q Light Controller Plus</Name>
+  <Version>4.14.1-2</Version>
+  <Author>FiefA</Author>
+ </Creator>
+ <Manufacturer>UKing</Manufacturer>
+ <Model>myLASER 6CH</Model>
+ <Type>Laser</Type>
+ <Channel Name="ON/OFF">
+  <Group Byte="0">Gobo</Group>
+  <Capability Min="0" Max="0">OFF</Capability>
+  <Capability Min="1" Max="255">ON</Capability>
+ </Channel>
+ <Channel Name="Movement AUTO/SOUND Control">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="31">Effects AUTO</Capability>
+  <Capability Min="32" Max="63">Serial AUTO</Capability>
+  <Capability Min="64" Max="95">Mixed AUTO</Capability>
+  <Capability Min="96" Max="127">Saving</Capability>
+  <Capability Min="128" Max="159">Effects SOUND</Capability>
+  <Capability Min="160" Max="191">Serial SOUND</Capability>
+  <Capability Min="192" Max="223">Mixed SOUND</Capability>
+  <Capability Min="224" Max="255">Saving</Capability>
+ </Channel>
+ <Channel Name="Pattern Selection">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="255">Different Group Every 15</Capability>
+ </Channel>
+ <Channel Name="Theme Selection">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="255">1 pattern per value</Capability>
+ </Channel>
+ <Channel Name="Color">
+  <Group Byte="0">Colour</Group>
+  <Capability Min="0" Max="31">Full</Capability>
+  <Capability Min="32" Max="63">Red</Capability>
+  <Capability Min="64" Max="95">Green</Capability>
+  <Capability Min="96" Max="127">Yellow</Capability>
+  <Capability Min="128" Max="159">Blue</Capability>
+  <Capability Min="160" Max="191">Purple</Capability>
+  <Capability Min="192" Max="223">Cyan</Capability>
+  <Capability Min="224" Max="255">White</Capability>
+ </Channel>
+ <Channel Name="Speed">
+  <Group Byte="0">Speed</Group>
+  <Capability Min="0" Max="0">No Movement</Capability>
+  <Capability Min="1" Max="255">1 Slow -&gt; 255 Fast</Capability>
+ </Channel>
+ <Mode Name="Mode">
+  <Channel Number="0">ON/OFF</Channel>
+  <Channel Number="1">Movement AUTO/SOUND Control</Channel>
+  <Channel Number="2">Pattern Selection</Channel>
+  <Channel Number="3">Theme Selection</Channel>
+  <Channel Number="4">Color</Channel>
+  <Channel Number="5">Speed</Channel>
+ </Mode>
+ <Physical>
+  <Bulb Type="" Lumens="0" ColourTemperature="0"/>
+  <Dimensions Weight="0" Width="0" Height="0" Depth="0"/>
+  <Lens Name="Other" DegreesMin="0" DegreesMax="0"/>
+  <Focus Type="Fixed" PanMax="0" TiltMax="0"/>
+  <Technical PowerConsumption="0" DmxConnector="5-pin"/>
+ </Physical>
+</FixtureDefinition>

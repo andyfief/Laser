@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE FixtureDefinition>
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
+ <Creator>
+  <Name>Q Light Controller Plus</Name>
+  <Version>4.14.1-2</Version>
+  <Author>Andy</Author>
+ </Creator>
+ <Manufacturer>UKing</Manufacturer>
+ <Model>My LASER</Model>
+ <Type>Laser</Type>
+ <Channel Name="Basic Modes">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="0">Off</Capability>
+  <Capability Min="1" Max="99">AUTO</Capability>
+  <Capability Min="100" Max="199">Sound Active</Capability>
+  <Capability Min="200" Max="254">Saving</Capability>
+  <Capability Min="255" Max="255">Pattern A, OFF</Capability>
+ </Channel>
+ <Channel Name="Out of Bounds / Pattern Size">
+  <Group Byte="0">Pan</Group>
+  <Capability Min="0" Max="49">Out of bounds Crossing</Capability>
+  <Capability Min="50" Max="99">Out of bounds reentry</Capability>
+  <Capability Min="100" Max="149">Out of bounds blanking</Capability>
+  <Capability Min="150" Max="199">Pattern zoom out, out of bounds blanking</Capability>
+  <Capability Min="200" Max="255">Saving</Capability>
+ </Channel>
+ <Channel Name="Group Selection">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="223">Group 1</Capability>
+  <Capability Min="224" Max="255">Group 2</Capability>
+ </Channel>
+ <Channel Name="Pattern Selections">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="255">Eah value for one pattern</Capability>
+ </Channel>
+ <Channel Name="Pattern Zoom IN/OUT">
+  <Group Byte="0">Tilt</Group>
+  <Capability Min="0" Max="127">Static Pattern Size</Capability>
+  <Capability Min="128" Max="159">Dynamic Zoom OUT: The bigger the value, the faster the speed</Capability>
+  <Capability Min="160" Max="191">Dynamic Zoom IN, the bigger the value, the faster the speed</Capability>
+  <Capability Min="192" Max="223">Dynamic Zoom IN/OUT</Capability>
+  <Capability Min="224" Max="255">Dynamic zoom rotation</Capability>
+ </Channel>
+ <Channel Name="Pattern Rotation">
+  <Group Byte="0">Shutter</Group>
+  <Capability Min="0" Max="127">Static Rotation</Capability>
+  <Capability Min="128" Max="159">Speed, 2 Circles clockwise and counter clockwise</Capability>
+  <Capability Min="160" Max="191">Speed, 1 Circle clockwise and counter clockwise</Capability>
+  <Capability Min="192" Max="223">Clockwise speed</Capability>
+  <Capability Min="224" Max="255">Counterclockwise speed</Capability>
+ </Channel>
+ <Channel Name="X Moving">
+  <Group Byte="0">Pan</Group>
+  <Capability Min="0" Max="127">Static X Moving</Capability>
+  <Capability Min="128" Max="159">Speed, UP moving wave effect</Capability>
+  <Capability Min="160" Max="191">Speed, DOWN moving wave effect</Capability>
+  <Capability Min="192" Max="223">Speed LEFT</Capability>
+  <Capability Min="224" Max="255">Speed RIGHT</Capability>
+ </Channel>
+ <Channel Name="Y Moving">
+  <Group Byte="0">Tilt</Group>
+  <Capability Min="0" Max="127">Static Y Moving</Capability>
+  <Capability Min="128" Max="159">Speed RIGHT moving wave effect</Capability>
+  <Capability Min="160" Max="191">Speed RIGHT moving wave effect</Capability>
+  <Capability Min="192" Max="223">Speed DOWN</Capability>
+  <Capability Min="224" Max="255">Speed UP</Capability>
+ </Channel>
+ <Channel Name="X Zoom">
+  <Group Byte="0">Shutter</Group>
+  <Capability Min="0" Max="127">Static size</Capability>
+  <Capability Min="128" Max="159">Speed UP moving distortion</Capability>
+  <Capability Min="160" Max="191">Speed Down moving distortion</Capability>
+  <Capability Min="192" Max="223">Speed IN/OUT</Capability>
+  <Capability Min="224" Max="255">Speed Rotation Zoom IN/OUT</Capability>
+ </Channel>
+ <Channel Name="Y Zoom">
+  <Group Byte="0">Shutter</Group>
+  <Capability Min="0" Max="127">Static size</Capability>
+  <Capability Min="128" Max="159">Speed RIGHT moving distortion</Capability>
+  <Capability Min="160" Max="191">Speed LEFT moving distortion</Capability>
+  <Capability Min="192" Max="223">Speed IN/OUT</Capability>
+  <Capability Min="224" Max="255">Speed Rotation Zoom IN/OUT</Capability>
+ </Channel>
+ <Channel Name="Fixed Color">
+  <Group Byte="0">Colour</Group>
+  <Capability Min="0" Max="255">255 Colors</Capability>
+ </Channel>
+ <Channel Name="Color Change">
+  <Group Byte="0">Colour</Group>
+  <Capability Min="0" Max="7">Original</Capability>
+  <Capability Min="8" Max="15">Red</Capability>
+  <Capability Min="16" Max="23">Yellow</Capability>
+  <Capability Min="24" Max="31">Green</Capability>
+  <Capability Min="32" Max="39">Cyan</Capability>
+  <Capability Min="40" Max="47">Blue</Capability>
+  <Capability Min="48" Max="55">Pink</Capability>
+  <Capability Min="56" Max="63">White</Capability>
+  <Capability Min="64" Max="95">Speed All Colors</Capability>
+  <Capability Min="96" Max="127">Speed YCP</Capability>
+  <Capability Min="128" Max="159">Speed YCPRGBW</Capability>
+  <Capability Min="160" Max="191">Speed 7 Color RGBYCPW</Capability>
+  <Capability Min="192" Max="223">Sine Chasing Color Change</Capability>
+  <Capability Min="224" Max="255">Cosine Chasing Color Change</Capability>
+ </Channel>
+ <Channel Name="Dots">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="63">Original Dots</Capability>
+  <Capability Min="64" Max="127">Pattern no Dots effect. sweep line blanking</Capability>
+  <Capability Min="128" Max="159">Pattern Dots effect, sweep line no blanking</Capability>
+  <Capability Min="160" Max="255">Saving</Capability>
+ </Channel>
+ <Channel Name="Drawing and Other Functions (working w channel 15)">
+  <Group Byte="0">Beam</Group>
+  <Capability Min="0" Max="255">On CH15 values 0-127, pattern moving drawing all ON to keep the time</Capability>
+ </Channel>
+ <Channel Name="Drawing">
+  <Group Byte="0">Beam</Group>
+  <Capability Min="0" Max="63">Sine manual drawing</Capability>
+  <Capability Min="64" Max="127">Cosine manual drawing</Capability>
+  <Capability Min="128" Max="159">Speed Drawing A effects</Capability>
+  <Capability Min="160" Max="191">Speed Drawing B effects</Capability>
+  <Capability Min="192" Max="223">Speed Drawing C effects</Capability>
+  <Capability Min="224" Max="255">Speed Drawing D effects</Capability>
+ </Channel>
+ <Channel Name="Twist Pattern Change">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="255">Higher value = less twisting</Capability>
+ </Channel>
+ <Channel Name="Grating selection">
+  <Group Byte="0">Beam</Group>
+  <Capability Min="0" Max="255">Grating group 1...1. Bigger digits = smaller pattern.</Capability>
+ </Channel>
+ <Channel Name="ON OFF">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="0">OFF</Capability>
+  <Capability Min="1" Max="99">AUTO</Capability>
+  <Capability Min="100" Max="199">SOUND</Capability>
+  <Capability Min="200" Max="254">Saving</Capability>
+  <Capability Min="255" Max="255">Group A OFF, Group B ON</Capability>
+ </Channel>
+ <Channel Name="Out of bounds and pattern size">
+  <Group Byte="0">Tilt</Group>
+  <Capability Min="0" Max="49">Out of bounds crossing. Larger val -&gt; smaller pattern</Capability>
+  <Capability Min="50" Max="99">Out of bounds reentry</Capability>
+  <Capability Min="100" Max="149">Out of bounds blanking</Capability>
+  <Capability Min="150" Max="255">Saving</Capability>
+ </Channel>
+ <Channel Name="No function" Preset="NoFunction"/>
+ <Channel Name="Pattern Selections 2">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="255">One value for each pattern</Capability>
+ </Channel>
+ <Channel Name="Pattern Zoom IN/OUT 1">
+  <Group Byte="0">Tilt</Group>
+  <Capability Min="0" Max="127">Static Pattern Size</Capability>
+  <Capability Min="128" Max="159">Dynamic Zoom OUT: The bigger the value, the faster the speed</Capability>
+  <Capability Min="160" Max="191">Dynamic Zoom IN, the bigger the value, the faster the speed</Capability>
+  <Capability Min="192" Max="223">Dynamic Zoom IN/OUT</Capability>
+  <Capability Min="224" Max="255">Dynamic zoom rotation</Capability>
+ </Channel>
+ <Channel Name="Pattern Rotation 1">
+  <Group Byte="0">Shutter</Group>
+  <Capability Min="0" Max="127">Static Rotation</Capability>
+  <Capability Min="128" Max="159">Speed, 2 Circles clockwise and counter clockwise</Capability>
+  <Capability Min="160" Max="191">Speed, 1 Circle clockwise and counter clockwise</Capability>
+  <Capability Min="192" Max="223">Clockwise speed</Capability>
+  <Capability Min="224" Max="255">Counterclockwise speed</Capability>
+ </Channel>
+ <Channel Name="X Moving 1">
+  <Group Byte="0">Pan</Group>
+  <Capability Min="0" Max="127">Static X Moving</Capability>
+  <Capability Min="128" Max="159">Speed, UP moving wave effect</Capability>
+  <Capability Min="160" Max="191">Speed, DOWN moving wave effect</Capability>
+  <Capability Min="192" Max="223">Speed LEFT</Capability>
+  <Capability Min="224" Max="255">Speed RIGHT</Capability>
+ </Channel>
+ <Channel Name="Y Moving 1">
+  <Group Byte="0">Tilt</Group>
+  <Capability Min="0" Max="127">Static Y Moving</Capability>
+  <Capability Min="128" Max="159">Speed RIGHT moving wave effect</Capability>
+  <Capability Min="160" Max="191">Speed RIGHT moving wave effect</Capability>
+  <Capability Min="192" Max="223">Speed DOWN</Capability>
+  <Capability Min="224" Max="255">Speed UP</Capability>
+ </Channel>
+ <Channel Name="X Zoom 1">
+  <Group Byte="0">Shutter</Group>
+  <Capability Min="0" Max="127">Static size</Capability>
+  <Capability Min="128" Max="159">Speed UP moving distortion</Capability>
+  <Capability Min="160" Max="191">Speed Down moving distortion</Capability>
+  <Capability Min="192" Max="223">Speed IN/OUT</Capability>
+  <Capability Min="224" Max="255">Speed Rotation Zoom IN/OUT</Capability>
+ </Channel>
+ <Channel Name="Y Zoom 1">
+  <Group Byte="0">Shutter</Group>
+  <Capability Min="0" Max="127">Static size</Capability>
+  <Capability Min="128" Max="159">Speed RIGHT moving distortion</Capability>
+  <Capability Min="160" Max="191">Speed LEFT moving distortion</Capability>
+  <Capability Min="192" Max="223">Speed IN/OUT</Capability>
+  <Capability Min="224" Max="255">Speed Rotation Zoom IN/OUT</Capability>
+ </Channel>
+ <Channel Name="Fixed Color 1">
+  <Group Byte="0">Colour</Group>
+  <Capability Min="0" Max="255">255 Colors</Capability>
+ </Channel>
+ <Channel Name="Color Change 1">
+  <Group Byte="0">Colour</Group>
+  <Capability Min="0" Max="7">Original</Capability>
+  <Capability Min="8" Max="15">Red</Capability>
+  <Capability Min="16" Max="23">Yellow</Capability>
+  <Capability Min="24" Max="31">Green</Capability>
+  <Capability Min="32" Max="39">Cyan</Capability>
+  <Capability Min="40" Max="47">Blue</Capability>
+  <Capability Min="48" Max="55">Pink</Capability>
+  <Capability Min="56" Max="63">White</Capability>
+  <Capability Min="64" Max="95">Speed All Colors</Capability>
+  <Capability Min="96" Max="127">Speed YCP</Capability>
+  <Capability Min="128" Max="159">Speed YCPRGBW</Capability>
+  <Capability Min="160" Max="191">Speed 7 Color RGBYCPW</Capability>
+  <Capability Min="192" Max="223">Sine Chasing Color Change</Capability>
+  <Capability Min="224" Max="255">Cosine Chasing Color Change</Capability>
+ </Channel>
+ <Channel Name="Dots 1">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="63">Original Dots</Capability>
+  <Capability Min="64" Max="127">Pattern no Dots effect. sweep line blanking</Capability>
+  <Capability Min="128" Max="159">Pattern Dots effect, sweep line no blanking</Capability>
+  <Capability Min="160" Max="255">Saving</Capability>
+ </Channel>
+ <Channel Name="Drawing and Other Functions (working w channel 15) 1">
+  <Group Byte="0">Beam</Group>
+  <Capability Min="0" Max="255">On CH15 values 0-127, pattern moving drawing all ON to keep the time</Capability>
+ </Channel>
+ <Channel Name="Drawing 1">
+  <Group Byte="0">Beam</Group>
+  <Capability Min="0" Max="63">Sine manual drawing</Capability>
+  <Capability Min="64" Max="127">Cosine manual drawing</Capability>
+  <Capability Min="128" Max="159">Speed Drawing A effects</Capability>
+  <Capability Min="160" Max="191">Speed Drawing B effects</Capability>
+  <Capability Min="192" Max="223">Speed Drawing C effects</Capability>
+  <Capability Min="224" Max="255">Speed Drawing D effects</Capability>
+ </Channel>
+ <Channel Name="Twist Pattern Change 1">
+  <Group Byte="0">Effect</Group>
+  <Capability Min="0" Max="255">Higher value = less twisting</Capability>
+ </Channel>
+ <Channel Name="Grating selection 1">
+  <Group Byte="0">Beam</Group>
+  <Capability Min="0" Max="255">Grating group 1...1. Bigger digits = smaller pattern.</Capability>
+ </Channel>
+ <Mode Name="36Ch">
+  <Channel Number="0">Basic Modes</Channel>
+  <Channel Number="1">Out of Bounds / Pattern Size</Channel>
+  <Channel Number="2">Group Selection</Channel>
+  <Channel Number="3">Pattern Selections</Channel>
+  <Channel Number="4">Pattern Zoom IN/OUT</Channel>
+  <Channel Number="5">Pattern Rotation</Channel>
+  <Channel Number="6">X Moving</Channel>
+  <Channel Number="7">Y Moving</Channel>
+  <Channel Number="8">X Zoom</Channel>
+  <Channel Number="9">Y Zoom</Channel>
+  <Channel Number="10">Fixed Color</Channel>
+  <Channel Number="11">Color Change</Channel>
+  <Channel Number="12">Dots</Channel>
+  <Channel Number="13">Drawing and Other Functions (working w channel 15)</Channel>
+  <Channel Number="14">Drawing</Channel>
+  <Channel Number="15">Twist Pattern Change</Channel>
+  <Channel Number="16">Grating selection</Channel>
+  <Channel Number="17">ON OFF</Channel>
+  <Channel Number="18">Out of bounds and pattern size</Channel>
+  <Channel Number="19">No function</Channel>
+  <Channel Number="20">Pattern Selections 2</Channel>
+  <Channel Number="21">Pattern Zoom IN/OUT 1</Channel>
+  <Channel Number="22">Pattern Rotation 1</Channel>
+  <Channel Number="23">X Moving 1</Channel>
+  <Channel Number="24">Y Moving 1</Channel>
+  <Channel Number="25">X Zoom 1</Channel>
+  <Channel Number="26">Y Zoom 1</Channel>
+  <Channel Number="27">Fixed Color 1</Channel>
+  <Channel Number="28">Color Change 1</Channel>
+  <Channel Number="29">Dots 1</Channel>
+  <Channel Number="30">Drawing and Other Functions (working w channel 15) 1</Channel>
+  <Channel Number="31">Drawing 1</Channel>
+  <Channel Number="32">Twist Pattern Change 1</Channel>
+  <Channel Number="33">Grating selection 1</Channel>
+ </Mode>
+ <Physical>
+  <Bulb Type="" Lumens="0" ColourTemperature="0"/>
+  <Dimensions Weight="0" Width="0" Height="0" Depth="0"/>
+  <Lens Name="Other" DegreesMin="0" DegreesMax="0"/>
+  <Focus Type="Fixed" PanMax="0" TiltMax="0"/>
+  <Technical PowerConsumption="0" DmxConnector="5-pin"/>
+ </Physical>
+</FixtureDefinition>
