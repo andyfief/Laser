@@ -112,11 +112,10 @@ def reset_dmx():
 def crazyDots():
     dmx.set_channel(2, 0) # pattern group 2
     dmx.set_channel(3, 255) # 100% pattern size
-    dmx.set_channel(4, 5) # circle
-    dmx.set_channel(1, 250) # on
+    dmx.set_channel(4, 16) # Dot
+    dmx.set_channel(1, 23) # on
 
     for i in range(0, 20):
-        dmx.set_channel(5, 127) # Zoomed in all the way (dot)
         dmx.set_channel(7, random.randint(0, 127))
         dmx.set_channel(8, random.randint(0, 127))
         time.sleep(0.05)
@@ -135,10 +134,28 @@ def zoomCircle(speed):
     dmx.set_channel(5, 159 + speed) # Circle = 127, + speed = 128 - 159
     time.sleep(4)
 
+def sideToSideDot():
+    dmx.set_channel(2, 0) # pattern group 2
+    dmx.set_channel(3, 255) # 100% pattern size
+    dmx.set_channel(4, 16) # Dot
+    dmx.set_channel(1, 23) # on
+
+    switchBacks = 5
+    for i in range(0, switchBacks):
+        for i in range(33, 96):
+                dmx.set_channel(8, i)
+                time.sleep(1/600)
+        for i in range(96, 33, -1):
+                dmx.set_channel(8, i)
+                time.sleep(1/600)
+
+sideToSideDot()
+"""
 crazyDots()
 reset_dmx()
 print("zoom")
 zoomCircle(32)
+"""
 
 print("Done!")
 dmx.close()
