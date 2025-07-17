@@ -5,6 +5,8 @@ Basic channel control for 36 channels
 """
 
 import time
+import random
+random.seed(time.time())
 import serial
 import serial.tools.list_ports
 import threading
@@ -103,28 +105,40 @@ print("\nDevice check passed! Starting DMX control...")
 # Create DMX controller
 dmx = SimpleDMX()
 
-# Initialize all channels to 0 (clear any previous state)
-for i in range(1, 33):
-    dmx.set_channel(i, 0)
+def reset_dmx():
+    for i in range(1, 34):
+        dmx.set_channel(i, 0)
 
-# Set channels 2 and 3 as specified
-dmx.set_channel(2, 0)
-dmx.set_channel(3, 255)
+def crazyDots():
+    dmx.set_channel(2, 0) # pattern group 2
+    dmx.set_channel(3, 255) # 100% pattern size
+    dmx.set_channel(4, 5) # circle
+    dmx.set_channel(1, 250) # on
 
-# Give a moment for the initial state to be established
-time.sleep(0.5)
+    for i in range(0, 20):
+        dmx.set_channel(5, 127) # Zoomed in all the way (dot)
+        dmx.set_channel(7, random.randint(0, 127))
+        dmx.set_channel(8, random.randint(0, 127))
+        time.sleep(0.05)
+        print("dot")
+        
+        time.sleep(0.05)
+        print("dot")
 
-# Main control loop
-try:
-    for i in range(0, 10):
-        dmx.set_channel(1, 255)
-        print("on")
-        time.sleep(7)
-        dmx.set_channel(1, 0)
-        print("off")
-        time.sleep(1)
-except KeyboardInterrupt:
-    print("Interrupted by user")
+def zoomCircle(speed):
+    assert(1 <= speed <= 32)
+    dmx.set_channel(2, 0) # 100% pattern size
+    dmx.set_channel(3, 255) # pattern group 2
+    dmx.set_channel(4, 5) # circle
+    dmx.set_channel(1, 23) # on, auto
+    dmx.set_channel(11, 180) # color change to see pattern switch
+    dmx.set_channel(5, 159 + speed) # Circle = 127, + speed = 128 - 159
+    time.sleep(4)
+
+crazyDots()
+reset_dmx()
+print("zoom")
+zoomCircle(32)
 
 print("Done!")
 dmx.close()
