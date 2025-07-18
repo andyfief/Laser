@@ -1,15 +1,8 @@
-#!/usr/bin/env python3
-"""
-Simple DMX Control for COM3
-Basic channel control for 36 channels
-"""
-
 import time
 import random
 random.seed(time.time())
-import serial
 import serial.tools.list_ports
-import threading
+from DMXClass import SimpleDMX
 
 def check_device():
     """Check if COM3 is available"""
@@ -44,118 +37,89 @@ def check_device():
         print(f"❌ COM3 is busy or unavailable: {e}")
         print("Make sure QLC+ or other software isn't using the device")
         return False
-
-class SimpleDMX:
-    def __init__(self):
-        self.ser = serial.Serial(
-            port='COM3',
-            baudrate=250000,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_TWO,
-            timeout=1
-        )
-        # DMX universe: start code + 512 channels
-        self.dmx_data = bytearray(34)
-        self.dmx_data[0] = 0  # Start code
-        
-        # Threading for continuous transmission
-        self.running = True
-        self.transmit_thread = threading.Thread(target=self._continuous_transmit)
-        self.transmit_thread.daemon = True
-        self.transmit_thread.start()
-        
-    def _continuous_transmit(self):
-        """Continuously send DMX data at ~40fps (closer to standard)"""
-        while self.running:
-            self._send_dmx()
-            time.sleep(1/40)  # ~40fps transmission rate
     
-    def _send_dmx(self):
-        """Send DMX data with proper timing"""
-        # Send break (longer for better compatibility)
-        self.ser.break_condition = True
-        time.sleep(0.000176)  # 176 microseconds break
-        self.ser.break_condition = False
-        time.sleep(0.000012)  # 12 microseconds mark after break
-        
-        # Send data
-        self.ser.write(self.dmx_data)
-        self.ser.flush()
-    
-    def set_channel(self, channel, value):
-        """Set channel (1-34) to value (0-255)"""
-        if 1 <= channel <= 34:
-            self.dmx_data[channel] = max(0, min(255, value))
-            # No need to send_dmx() here - continuous thread handles it
-    
-    def close(self):
-        """Close connection"""
-        self.running = False
-        self.transmit_thread.join()
-        self.ser.close()
-
-# Check device first
 if not check_device():
     print("Cannot proceed - device check failed")
     exit()
 
-print("\nDevice check passed! Starting DMX control...")
-
-# Create DMX controller
 dmx = SimpleDMX()
+
+def circleZoomIn(speed):
+    dmx.set_channel(4, 5) # Circle
+    for i in range(0, 127):
+        dmx.set_channel(5, i) # Circle Zooming in = 160 + speed <= 191
+        time.sleep(1/(100*speed))
+
+def crazyDots(speed):
+    dmx.set_channel(4, 16) # Dot
+    for i in range(0, 20): # number of dots / 2
+        dmx.set_channel(7, random.randint(0, 127)) # dot 1
+        dmx.set_channel(8, random.randint(0, 127)) # dot 2
+        time.sleep(1/(speed)) # time between dots (doing 1/ 200 * speed because this should be
+                                  # faster generally than other functions that are 1-10)
+def dotLR(speed):
+    dmx.set_channel(4, 16) # Dot
+    for i in range(33, 96):
+                dmx.set_channel(8, i)
+                time.sleep(1/(50 * speed))
+
+def dotRL(speed):
+     dmx.set_channel(4, 16) # Dot
+     for i in range(96, 33, -1):
+                dmx.set_channel(8, i)
+                time.sleep(1/(50 * speed))
+
+def sideToSideDot(speed):
+    dmx.set_channel(4, 16) # Dot
+    dotRL(speed)
+    dotLR(speed)
+
+def horizontalLineRL(speed): # right to left
+    # Pans horizontally left once
+    dmx.set_channel(4, 45)
+    for i in range(33, 96): # channel 9 left-right range
+        dmx.set_channel(8, i)
+        time.sleep(1/(100 * speed))
+
+def horizontalLineLR(speed): # left to right
+    # Pans horizontally left once
+    dmx.set_channel(4, 45)
+    for i in range(96, 33, -1): # channel 9 left-right range
+        dmx.set_channel(8, i)
+        time.sleep(1/(100 * speed))
+
+def horizontalLineSideToSide(speed):
+    horizontalLineRL(speed)
+    horizontalLineLR(speed)
+
+def setGlobalChannels():
+    dmx.set_channel(1, 23) # on, auto
+    dmx.set_channel(2, 0) # pattern group 2
+    dmx.set_channel(3, 255) # 100% pattern size
 
 def reset_dmx():
     for i in range(1, 34):
         dmx.set_channel(i, 0)
+    setGlobalChannels()
 
-def crazyDots():
-    dmx.set_channel(2, 0) # pattern group 2
-    dmx.set_channel(3, 255) # 100% pattern size
-    dmx.set_channel(4, 16) # Dot
-    dmx.set_channel(1, 23) # on
 
-    for i in range(0, 20):
-        dmx.set_channel(7, random.randint(0, 127))
-        dmx.set_channel(8, random.randint(0, 127))
-        time.sleep(0.05)
-        print("dot")
-        
-        time.sleep(0.05)
-        print("dot")
-
-def zoomCircle(speed):
-    assert(1 <= speed <= 32)
-    dmx.set_channel(2, 0) # 100% pattern size
-    dmx.set_channel(3, 255) # pattern group 2
-    dmx.set_channel(4, 5) # circle
-    dmx.set_channel(1, 23) # on, auto
-    dmx.set_channel(11, 180) # color change to see pattern switch
-    dmx.set_channel(5, 159 + speed) # Circle = 127, + speed = 128 - 159
-    time.sleep(4)
-
-def sideToSideDot():
-    dmx.set_channel(2, 0) # pattern group 2
-    dmx.set_channel(3, 255) # 100% pattern size
-    dmx.set_channel(4, 16) # Dot
-    dmx.set_channel(1, 23) # on
-
-    switchBacks = 5
-    for i in range(0, switchBacks):
-        for i in range(33, 96):
-                dmx.set_channel(8, i)
-                time.sleep(1/600)
-        for i in range(96, 33, -1):
-                dmx.set_channel(8, i)
-                time.sleep(1/600)
-
-sideToSideDot()
-"""
-crazyDots()
 reset_dmx()
-print("zoom")
-zoomCircle(32)
-"""
+circleZoomIn(7)
+
+reset_dmx()
+dotLR(7)
+dotRL(7)
+
+reset_dmx()
+sideToSideDot(7)
+crazyDots(7)
+
+reset_dmx()
+horizontalLineRL(7)
+horizontalLineLR(7)
+
+reset_dmx()
+horizontalLineSideToSide(7)
 
 print("Done!")
 dmx.close()
