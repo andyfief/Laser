@@ -52,7 +52,8 @@ def circleZoomIn(speed):
 
 def crazyDots(speed):
     dmx.set_channel(4, 16) # Dot
-    for i in range(0, 20): # number of dots / 2
+    for i in range(0, 20): # number of dots / 2 -------------------------------- This does not currently play (once) once is 1 random dot. Might want to rework this since it
+                                                                        # should be a random dot each time the function replays anyway since its seeded w time.
         dmx.set_channel(7, random.randint(0, 127)) # dot 1
         dmx.set_channel(8, random.randint(0, 127)) # dot 2
         time.sleep(1/(speed)) # time between dots (doing 1/ 200 * speed because this should be
@@ -80,7 +81,7 @@ def horizontalLineRL(speed): # right to left
     for i in range(33, 96): # channel 9 left-right range
         dmx.set_channel(8, i)
         time.sleep(1/(100 * speed))
-
+ 
 def horizontalLineLR(speed): # left to right
     # Pans horizontally left once
     dmx.set_channel(4, 45)
