@@ -75,6 +75,12 @@ def sideToSideDot(speed):
     dotRL(speed)
     dotLR(speed)
 
+def randomSingleDot(speed):
+    dmx.set_channel(4, 16) # Dot
+    dmx.set_channel(7, random.randint(0, 127))
+    dmx.set_channel(8, random.randint(0, 127))
+    time.sleep(1/10) # 1/10th second for now
+
 def horizontalLineRL(speed): # right to left
     # Pans horizontally left once
     dmx.set_channel(4, 45)
@@ -93,6 +99,16 @@ def horizontalLineSideToSide(speed):
     horizontalLineRL(speed)
     horizontalLineLR(speed)
 
+def wiggleLine(speed):
+    dmx.set_channel(4, 51) # squiggle
+    dmx.set_channel(6, 33) # rotate to horizontal
+    for i in range(40, 100):
+        dmx.set_channel(10, i)
+        time.sleep(1/(50*speed))
+    for i in range(100, 40, -1):
+        dmx.set_channel(10, i)
+        time.sleep(1/(50 * speed))
+
 def setGlobalChannels():
     dmx.set_channel(1, 23) # on, auto
     dmx.set_channel(2, 0) # pattern group 2
@@ -104,23 +120,26 @@ def reset_dmx():
     setGlobalChannels()
 
 
-reset_dmx()
-circleZoomIn(7)
+
 
 reset_dmx()
-dotLR(7)
-dotRL(7)
+wiggleLine(9)
+# circleZoomIn(7)
 
-reset_dmx()
-sideToSideDot(7)
-crazyDots(7)
+# reset_dmx()
+# dotLR(7)
+# dotRL(7)
 
-reset_dmx()
-horizontalLineRL(7)
-horizontalLineLR(7)
+# reset_dmx()
+# sideToSideDot(7)
+# crazyDots(7)
 
-reset_dmx()
-horizontalLineSideToSide(7)
+# reset_dmx()
+# horizontalLineRL(7)
+# horizontalLineLR(7)
+
+# reset_dmx()
+# horizontalLineSideToSide(7)
 
 print("Done!")
 dmx.close()
