@@ -109,10 +109,63 @@ def wiggleLine(speed):
         dmx.set_channel(10, i)
         time.sleep(1/(50 * speed))
 
+def spazzCircle(speed):
+    dmx.set_channel(4, 5) # Circle
+    while True:
+        dmx.set_channel(7, random.randint(0, 127))
+        dmx.set_channel(8, random.randint(0, 127))
+        time.sleep(1/(50 * speed))
+
+
+import random
+import time
+
+def spotlight(speed=1.0, duration_range=(1, 3)):
+    # Initialize position
+    x = random.randint(0, 127)
+    y = random.randint(0, 127)
+
+    dmx.set_channel(2, 29)  # 100% pattern size
+    dmx.set_channel(4, 5)   # Circle or movement mode
+    dmx.set_channel(7, x)
+    dmx.set_channel(8, y)
+
+    while True:
+        # Choose a random direction (-1, 0, or 1 for X and Y)
+        dx = random.choice([-1, 0, 1])
+        dy = random.choice([-1, 0, 1])
+
+        # If no movement, pick again
+        if dx == 0 and dy == 0:
+            continue
+
+        # Move for a random amount of time (in seconds)
+        duration = random.uniform(*duration_range)
+        start_time = time.time()
+
+        while time.time() - start_time < duration:
+            # Update position
+            x = max(0, min(127, x + dx))
+            y = max(0, min(127, y + dy))
+
+            # Send to DMX
+            dmx.set_channel(7, x)
+            dmx.set_channel(8, y)
+
+            time.sleep(1 / (10 * speed))
+
+            # Bounce off edges
+            if x == 0 or x == 127:
+                dx *= -1
+            if y == 0 or y == 127:
+                dy *= -1
+
+
+
 def setGlobalChannels():
     dmx.set_channel(1, 23) # on, auto
-    dmx.set_channel(2, 0) # pattern group 2
-    dmx.set_channel(3, 255) # 100% pattern size
+    dmx.set_channel(2, 0) # 100% pattern size
+    dmx.set_channel(3, 255) # Group selection
 
 def reset_dmx():
     for i in range(1, 34):
@@ -123,7 +176,9 @@ def reset_dmx():
 
 
 reset_dmx()
-wiggleLine(9)
+
+spotlight(2)
+
 # circleZoomIn(7)
 
 # reset_dmx()
