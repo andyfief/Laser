@@ -3,11 +3,11 @@ import librosa
 import matplotlib.pyplot as plt
 
 # Load label data
-labelData = np.load('where-the-wild-things-are.labels.npy')
+labelData = np.load('drum-120.patternLabels.npy')
 print("Label data shape:", labelData.shape)
 
 # Load audio
-y, sr = librosa.load("where-the-wild-things-are.wav", sr=22050)
+y, sr = librosa.load("./wavs/drum-120.wav", sr=22050)
 
 # Hop length to get ~10 FPS
 hop_length = int(sr / 10)
