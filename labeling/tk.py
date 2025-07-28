@@ -9,6 +9,7 @@ import sounddevice as sd
 import threading
 import time
 from pathlib import Path
+import os
 
 class TkinterSongLabeler:
     def __init__(self, root):
@@ -23,8 +24,11 @@ class TkinterSongLabeler:
         self.audio_file = None
         self.labels_per_second = 10
         self.n_labels = 0
-        self.labels = None
-        self.label_type = None
+        
+        # Labels for both types
+        self.speed_labels = None
+        self.pattern_labels = None
+        self.current_label_set = "speed"  # Current active label set
         
         # Playback state
         self.is_playing = False
@@ -66,14 +70,14 @@ class TkinterSongLabeler:
         self.file_label.grid(row=0, column=1, sticky=(tk.W, tk.E))
         
         # Label type selection
-        label_type_frame = ttk.LabelFrame(file_frame, text="Label Type")
+        label_type_frame = ttk.LabelFrame(file_frame, text="Current Label Set")
         label_type_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
         
-        self.label_type_var = tk.IntVar(value=1)
+        self.label_type_var = tk.StringVar(value="speed")
         ttk.Radiobutton(label_type_frame, text="Speed Labels (0-9)", variable=self.label_type_var, 
-                       value=1, command=self.on_label_type_change).grid(row=0, column=0, padx=(0, 20))
+                       value="speed", command=self.on_label_type_change).grid(row=0, column=0, padx=(0, 20))
         ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-3)", variable=self.label_type_var, 
-                       value=2, command=self.on_label_type_change).grid(row=0, column=1)
+                       value="pattern", command=self.on_label_type_change).grid(row=0, column=1)
         
         # Control frame
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="5")
@@ -176,9 +180,12 @@ Controls:
         self.audio_file = file_path
         
         # Setup labels
-        self.label_type = self.label_type_var.get()
         self.n_labels = int(self.duration * self.labels_per_second)
-        self.labels = np.zeros(self.n_labels, dtype=int)
+        self.speed_labels = np.zeros(self.n_labels, dtype=int)
+        self.pattern_labels = np.zeros(self.n_labels, dtype=int)
+        
+        # Check if existing labels file exists and load them
+        self.load_existing_labels()
         
         # Reset playback state
         self.stop_playback()
@@ -192,9 +199,8 @@ Controls:
         self.position_scale.config(to=self.duration, state="normal")
         self.play_button.config(state="normal")
         
-        # Update label spinbox range
-        max_label = 9 if self.label_type == 1 else 3
-        self.label_spinbox.config(to=max_label)
+        # Update label spinbox range based on current type
+        self.on_label_type_change()
         
         # Setup plot
         self.setup_plot()
@@ -204,16 +210,35 @@ Controls:
         
         self.status_label.config(text=f"Ready! {self.duration:.1f}s audio, {self.n_labels} labels")
     
+    def load_existing_labels(self):
+        """Load existing labels if the npz file exists"""
+        output_path = Path("labels") / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
+        
+        if output_path.exists():
+            try:
+                data = np.load(output_path)
+                if 'speed_labels' in data:
+                    self.speed_labels = data['speed_labels']
+                if 'pattern_labels' in data:
+                    self.pattern_labels = data['pattern_labels']
+                print(f"Loaded existing labels from {output_path}")
+            except Exception as e:
+                print(f"Error loading existing labels: {e}")
+    
     def on_label_type_change(self):
         """Handle label type change"""
-        if self.audio_file:
-            self.label_type = self.label_type_var.get()
-            max_label = 9 if self.label_type == 1 else 3
-            self.label_spinbox.config(to=max_label)
-            if self.current_label_var.get() > max_label:
-                self.current_label_var.set(max_label)
-                self.current_label = max_label
+        self.current_label_set = self.label_type_var.get()
+        max_label = 9 if self.current_label_set == "speed" else 3
+        self.label_spinbox.config(to=max_label)
+        if self.current_label_var.get() > max_label:
+            self.current_label_var.set(max_label)
+            self.current_label = max_label
+        if hasattr(self, 'ax2'):
             self.update_plot_labels()
+    
+    def get_current_labels(self):
+        """Get the currently active label array"""
+        return self.speed_labels if self.current_label_set == "speed" else self.pattern_labels
     
     def setup_plot(self):
         """Setup the matplotlib plots"""
@@ -232,13 +257,14 @@ Controls:
         
         # Labels plot
         label_times = np.linspace(0, self.duration, self.n_labels)
-        self.label_line, = self.ax2.plot(label_times, self.labels, 'g-', linewidth=2)
+        current_labels = self.get_current_labels()
+        self.label_line, = self.ax2.plot(label_times, current_labels, 'g-', linewidth=2)
         
-        label_type_str = "Speed" if self.label_type == 1 else "Pattern"
+        label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
         self.ax2.set_ylabel(f'{label_type_str} Labels')
         self.ax2.set_xlabel('Time (s)')
         
-        y_max = 9.5 if self.label_type == 1 else 3.5
+        y_max = 9.5 if self.current_label_set == "speed" else 3.5
         self.ax2.set_ylim(0, y_max)
         self.ax2.grid(True, alpha=0.3)
         
@@ -248,10 +274,14 @@ Controls:
     def update_plot_labels(self):
         """Update plot with current label type"""
         if self.ax2 and self.label_line:
-            label_type_str = "Speed" if self.label_type == 1 else "Pattern"
+            label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
             self.ax2.set_ylabel(f'{label_type_str} Labels')
-            y_max = 9.5 if self.label_type == 1 else 3.5
+            y_max = 9.5 if self.current_label_set == "speed" else 3.5
             self.ax2.set_ylim(0, y_max)
+            
+            # Update the line data
+            current_labels = self.get_current_labels()
+            self.label_line.set_ydata(current_labels)
             self.canvas.draw()
     
     def start_update_timer(self):
@@ -289,11 +319,12 @@ Controls:
         if self.position_line:
             self.position_line.set_xdata([self.position, self.position])
         if self.label_line:
-            self.label_line.set_ydata(self.labels)
+            current_labels = self.get_current_labels()
+            self.label_line.set_ydata(current_labels)
         
         # Update status
         status_text = f"Label: {self.current_label} | Position: {self.position:.1f}s | "
-        status_text += f"Playing: {self.is_playing}"
+        status_text += f"Playing: {self.is_playing} | Mode: {self.current_label_set.title()}"
         self.status_label.config(text=status_text)
         
         # Update play button text
@@ -322,7 +353,7 @@ Controls:
             self.root.quit()
         elif key.isdigit():
             digit = int(key)
-            max_label = 9 if self.label_type == 1 else 3
+            max_label = 9 if self.current_label_set == "speed" else 3
             if digit <= max_label:
                 self.current_label = digit
                 self.current_label_var.set(digit)
@@ -400,41 +431,57 @@ Controls:
     
     def apply_label(self):
         """Apply current label at current position"""
-        if not self.labels.size:
+        current_labels = self.get_current_labels()
+        if not current_labels.size:
             return
             
         label_idx = int(self.position * self.labels_per_second)
-        if 0 <= label_idx < len(self.labels):
+        if 0 <= label_idx < len(current_labels):
             # Apply to small window
             window = max(1, self.labels_per_second // 4)  # 0.25 second window
             start = max(0, label_idx - window//2)
-            end = min(len(self.labels), label_idx + window//2)
-            self.labels[start:end] = self.current_label
-
+            end = min(len(current_labels), label_idx + window//2)
+            current_labels[start:end] = self.current_label
 
     def save_mfccs_and_labels(self):
         """Save MFCCs and labels to a compressed .npz file"""
-        if not self.audio_file or not self.labels.size:
-            messagebox.showwarning("Warning", "No audio or labels to save")
+        if not self.audio_file:
+            messagebox.showwarning("Warning", "No audio loaded")
             return
 
         try:
-            hop_length = int(self.sr / self.labels_per_second)
-
-            # Extract MFCC features (e.g., 13 per frame)
-            mfcc = librosa.feature.mfcc(y=self.y, sr=self.sr, n_mfcc=20, hop_length=hop_length)
-            X = mfcc.T  # Shape: (num_frames, 13)
-
-            if len(X) != len(self.labels):
-                min_len = min(len(X), len(self.labels))
+            # Ensure labels directory exists
+            labels_dir = Path("labels")
+            labels_dir.mkdir(exist_ok=True)
+            
+            output_path = labels_dir / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
+            
+            # Check if file already exists
+            existing_data = {}
+            if output_path.exists():
+                existing_data = dict(np.load(output_path))
+            
+            # Extract MFCC features if not already present
+            if 'mfcc' not in existing_data:
+                hop_length = int(self.sr / self.labels_per_second)
+                mfcc = librosa.feature.mfcc(y=self.y, sr=self.sr, n_mfcc=20, hop_length=hop_length)
+                X = mfcc.T  # Shape: (num_frames, 20)
+                
+                # Ensure MFCC and labels have same length
+                min_len = min(len(X), self.n_labels)
                 X = X[:min_len]
-                labels = self.labels[:min_len]
-            else:
-                labels = self.labels
-
-            output_path = Path("labels") / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
-            np.savez_compressed(output_path, mfcc=X, labels=labels)
-
+                self.speed_labels = self.speed_labels[:min_len]
+                self.pattern_labels = self.pattern_labels[:min_len]
+                
+                existing_data['mfcc'] = X
+            
+            # Add current labels
+            existing_data['speed_labels'] = self.speed_labels
+            existing_data['pattern_labels'] = self.pattern_labels
+            
+            # Save everything
+            np.savez_compressed(output_path, **existing_data)
+            
             messagebox.showinfo("Success", f"MFCCs and labels saved to:\n{output_path}")
 
         except Exception as e:
