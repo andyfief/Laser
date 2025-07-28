@@ -2,45 +2,65 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Load the saved .npz file
-npz_path = './labels/black-ice.mfcc_labels.npz'
+npz_path = './labels/flip-it.mfcc_labels.npz'
 data = np.load(npz_path)
 
-# Extract MFCCs and labels
-X = data['mfcc']       # Shape: (num_frames, 13)
-y = data['labels']     # Shape: (num_frames,)
+# Extract MFCCs and both types of labels
+X = data['mfcc']                 # Shape: (num_frames, 13)
+pattern_labels = data['pattern_labels']  # Shape: (num_frames,)
+speed_labels = data['speed_labels']      # Shape: (num_frames,)
 
-# Summary of data
+# Summary
 print(f"✅ Loaded data from: {npz_path}")
 print(f"MFCC shape: {X.shape} — {X.shape[0]} time steps, {X.shape[1]} coefficients each")
-print(f"Label shape: {y.shape} — One label per time step")
-print(f"Label range: {np.min(y)} to {np.max(y)}")
-print(f"Unique labels: {np.unique(y)}")
-print(f"First 10 MFCCs (1st coeff): {X[:10, 0]}")
-print(f"First 10 Labels: {y[:10]}")
 
-# Assume 10 FPS → 0.1s per frame
-duration = X.shape[0] * 0.1
+print(f"\n🔷 Pattern Labels:")
+print(f"  Shape: {pattern_labels.shape}")
+print(f"  Range: {np.min(pattern_labels)} to {np.max(pattern_labels)}")
+print(f"  Unique values: {np.unique(pattern_labels)}")
+print(f"  First 10: {pattern_labels[:10]}")
+
+print(f"\n🔶 Speed Labels:")
+print(f"  Shape: {speed_labels.shape}")
+print(f"  Range: {np.min(speed_labels)} to {np.max(speed_labels)}")
+print(f"  Unique values: {np.unique(speed_labels)}")
+print(f"  First 10: {speed_labels[:10]}")
+
+print(f"\n🔎 First 10 MFCCs (Coeff 1): {X[:10, 0]}")
+
+# Plotting
+duration = X.shape[0] * 0.1  # Assuming 10 FPS
 times = np.linspace(0, duration, X.shape[0])
 
-# Plot labels + 1st MFCC coeff over time
-plt.figure(figsize=(12, 6))
+plt.figure(figsize=(12, 8))
 
-plt.subplot(2, 1, 1)
-plt.plot(times, y, color='green')
+# Plot Pattern Labels
+plt.subplot(3, 1, 1)
+plt.plot(times, pattern_labels, color='green')
 plt.title('Pattern Labels Over Time')
-plt.ylabel('Label')
-plt.ylim(-0.5, max(y)+0.5)
+plt.ylabel('Pattern')
+plt.ylim(-0.5, max(pattern_labels)+0.5)
 plt.grid(True)
 
-plt.subplot(2, 1, 2)
+# Plot Speed Labels
+plt.subplot(3, 1, 2)
+plt.plot(times, speed_labels, color='red')
+plt.title('Speed Labels Over Time')
+plt.ylabel('Speed')
+plt.ylim(-0.5, max(speed_labels)+0.5)
+plt.grid(True)
+
+# Plot MFCC Coefficient 1
+plt.subplot(3, 1, 3)
 plt.plot(times, X[:, 0], color='blue')
 plt.title('First MFCC Coefficient Over Time')
-plt.ylabel('MFCC Coeff 1')
+plt.ylabel('MFCC 1')
 plt.xlabel('Time (s)')
 plt.grid(True)
 
 plt.tight_layout()
 plt.show()
+
 
 def plot_all_mfccs(mfccs, fps=10, title="All 13 MFCC Coefficients Over Time"):
     """
@@ -67,14 +87,5 @@ def plot_all_mfccs(mfccs, fps=10, title="All 13 MFCC Coefficients Over Time"):
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.show()
 
+# Call the MFCC plotter
 plot_all_mfccs(X)
-
-
-# (For the neural net)
-# What are n_mfcc=13 and why 13?
-# MFCC stands for Mel-Frequency Cepstral Coefficients — features inspired by human hearing that capture timbral (tone color) characteristics of sound.
-
-# n_mfcc=13 means you extract 13 coefficients per frame, which is a common standard in audio analysis (like speech recognition). 
-# The first few coefficients capture the broad spectral shape, and higher ones capture finer details.
-
-# 13 is a traditional choice because it balances capturing enough detail without too much redundancy or noise.
