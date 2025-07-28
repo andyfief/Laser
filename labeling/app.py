@@ -170,9 +170,9 @@ class SimpleSongLabeler:
     def save(self):
         """Save labels"""
         if self.labelType == 1:
-            output_path = Path(self.audio_file).with_suffix('.speedLabels.npy')
+            output_path = output_path = Path("labels") / Path(self.audio_file).with_suffix('.speedLabels.npy').name
         elif self.labelType == 2:
-            output_path = Path(self.audio_file).with_suffix('.patternLabels.npy')
+            output_path = output_path = Path("labels") / Path(self.audio_file).with_suffix('.patternLabels.npy').name
 
         np.save(output_path, self.labels)
         print(f"Saved: {output_path}")
@@ -182,7 +182,7 @@ class SimpleSongLabeler:
         plt.show()
 
 if __name__ == "__main__":
-    audio_file = "where-the-wild-things-are.wav"
+    audio_file = "./wavs/where-the-wild-things-are.wav"
 
     labelType = input("Select label type: \n 1: Speed \n 2: Patterns\n")
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     
     try:
         app = SimpleSongLabeler(audio_file, labelType, labels_per_second=10)
-        app.run()
+        app.run() 
     except FileNotFoundError:
         print(f"File not found: {audio_file}")
     except Exception as e:

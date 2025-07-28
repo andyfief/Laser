@@ -1,0 +1,413 @@
+import numpy as np
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import librosa
+import sounddevice as sd
+import threading
+import time
+from pathlib import Path
+
+class TkinterSongLabeler:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Audio Labeling Tool")
+        self.root.geometry("1200x800")
+        
+        # Audio data
+        self.y = None
+        self.sr = None
+        self.duration = 0
+        self.audio_file = None
+        self.labels_per_second = 10
+        self.n_labels = 0
+        self.labels = None
+        self.label_type = None
+        
+        # Playback state
+        self.is_playing = False
+        self.position = 0.0
+        self.current_label = 0
+        self.play_start_time = 0
+        self.play_start_pos = 0
+        
+        # GUI elements
+        self.position_line = None
+        self.label_line = None
+        self.status_label = None
+        self.update_timer = None
+        
+        self.setup_gui()
+        self.setup_bindings()
+        
+    def setup_gui(self):
+        """Setup the GUI layout"""
+        # Main frame
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Configure grid weights
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        main_frame.rowconfigure(2, weight=1)
+        
+        # File selection frame
+        file_frame = ttk.LabelFrame(main_frame, text="File Selection", padding="5")
+        file_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        file_frame.columnconfigure(1, weight=1)
+        
+        ttk.Button(file_frame, text="Load Audio File", command=self.load_audio_file).grid(row=0, column=0, padx=(0, 10))
+        self.file_label = ttk.Label(file_frame, text="No file loaded")
+        self.file_label.grid(row=0, column=1, sticky=(tk.W, tk.E))
+        
+        # Label type selection
+        label_type_frame = ttk.LabelFrame(file_frame, text="Label Type")
+        label_type_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        self.label_type_var = tk.IntVar(value=1)
+        ttk.Radiobutton(label_type_frame, text="Speed Labels (0-9)", variable=self.label_type_var, 
+                       value=1, command=self.on_label_type_change).grid(row=0, column=0, padx=(0, 20))
+        ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-3)", variable=self.label_type_var, 
+                       value=2, command=self.on_label_type_change).grid(row=0, column=1)
+        
+        # Control frame
+        control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="5")
+        control_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        # Playback controls
+        playback_frame = ttk.Frame(control_frame)
+        playback_frame.grid(row=0, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        self.play_button = ttk.Button(playback_frame, text="Play", command=self.toggle_play, state="disabled")
+        self.play_button.grid(row=0, column=0, padx=(0, 10))
+        
+        ttk.Label(playback_frame, text="Position:").grid(row=0, column=1, padx=(0, 5))
+        self.position_var = tk.DoubleVar()
+        self.position_scale = ttk.Scale(playback_frame, from_=0, to=100, variable=self.position_var, 
+                                       command=self.on_position_change, state="disabled")
+        self.position_scale.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(0, 10))
+        playback_frame.columnconfigure(2, weight=1)
+        
+        self.position_label = ttk.Label(playback_frame, text="0.0s / 0.0s")
+        self.position_label.grid(row=0, column=3)
+        
+        # Label controls
+        label_control_frame = ttk.Frame(control_frame)
+        label_control_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E))
+        
+        ttk.Label(label_control_frame, text="Current Label:").grid(row=0, column=0, padx=(0, 5))
+        self.current_label_var = tk.IntVar()
+        self.label_spinbox = ttk.Spinbox(label_control_frame, from_=0, to=9, width=5, 
+                                        textvariable=self.current_label_var, command=self.on_label_change)
+        self.label_spinbox.grid(row=0, column=1, padx=(0, 10))
+        
+        ttk.Button(label_control_frame, text="Apply Label", command=self.apply_label).grid(row=0, column=2, padx=(0, 10))
+        ttk.Button(label_control_frame, text="Save Labels", command=self.save_labels).grid(row=0, column=3)
+        
+        # Plot frame
+        plot_frame = ttk.LabelFrame(main_frame, text="Visualization", padding="5")
+        plot_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+        plot_frame.columnconfigure(0, weight=1)
+        plot_frame.rowconfigure(0, weight=1)
+        
+        # Create matplotlib figure
+        self.fig = Figure(figsize=(12, 6), dpi=100)
+        self.ax1, self.ax2 = self.fig.subplots(2, 1)
+        
+        self.canvas = FigureCanvasTkAgg(self.fig, plot_frame)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Status bar
+        self.status_label = ttk.Label(main_frame, text="Ready - Load an audio file to begin")
+        self.status_label.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        # Instructions
+        instructions = """
+Controls:
+• SPACE: Play/Pause
+• 0-9: Set label (Speed mode) / 0-3: Set label (Pattern mode)
+• Click on plot: Seek to position
+• ESC: Save labels
+• Q: Quit
+"""
+        instructions_label = ttk.Label(main_frame, text=instructions, justify=tk.LEFT, 
+                                     font=('TkDefaultFont', 8))
+        instructions_label.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
+    
+    def setup_bindings(self):
+        """Setup keyboard bindings"""
+        self.root.bind('<KeyPress>', self.on_key_press)
+        self.root.focus_set()  # Ensure window can receive key events
+        
+        # Canvas click binding
+        self.canvas.mpl_connect('button_press_event', self.on_canvas_click)
+    
+    def load_audio_file(self):
+        """Load audio file dialog"""
+        file_path = filedialog.askopenfilename(
+            title="Select Audio File",
+            filetypes=[
+                ("Audio files", "*.wav *.mp3 *.flac *.m4a *.aac"),
+                ("WAV files", "*.wav"),
+                ("MP3 files", "*.mp3"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if file_path:
+            try:
+                self.load_audio(file_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load audio file:\n{str(e)}")
+    
+    def load_audio(self, file_path):
+        """Load and process audio file"""
+        self.status_label.config(text="Loading audio...")
+        self.root.update()
+        
+        # Load audio
+        self.y, self.sr = librosa.load(file_path)
+        self.duration = len(self.y) / self.sr
+        self.audio_file = file_path
+        
+        # Setup labels
+        self.label_type = self.label_type_var.get()
+        self.n_labels = int(self.duration * self.labels_per_second)
+        self.labels = np.zeros(self.n_labels, dtype=int)
+        
+        # Reset playback state
+        self.is_playing = False
+        self.position = 0.0
+        self.current_label = 0
+        self.current_label_var.set(0)
+        
+        # Update GUI
+        self.file_label.config(text=f"Loaded: {Path(file_path).name}")
+        self.position_scale.config(to=self.duration, state="normal")
+        self.play_button.config(state="normal")
+        
+        # Update label spinbox range
+        max_label = 9 if self.label_type == 1 else 3
+        self.label_spinbox.config(to=max_label)
+        
+        # Setup plot
+        self.setup_plot()
+        
+        # Start update timer
+        self.start_update_timer()
+        
+        self.status_label.config(text=f"Ready! {self.duration:.1f}s audio, {self.n_labels} labels")
+    
+    def on_label_type_change(self):
+        """Handle label type change"""
+        if self.audio_file:
+            self.label_type = self.label_type_var.get()
+            max_label = 9 if self.label_type == 1 else 3
+            self.label_spinbox.config(to=max_label)
+            if self.current_label_var.get() > max_label:
+                self.current_label_var.set(max_label)
+                self.current_label = max_label
+            self.update_plot_labels()
+    
+    def setup_plot(self):
+        """Setup the matplotlib plots"""
+        self.ax1.clear()
+        self.ax2.clear()
+        
+        # Downsample waveform for display
+        step = max(1, len(self.y) // 2000)
+        times = np.linspace(0, self.duration, len(self.y[::step]))
+        
+        # Waveform plot
+        self.ax1.plot(times, self.y[::step], 'b-', alpha=0.6, linewidth=0.5)
+        self.position_line = self.ax1.axvline(0, color='red', linewidth=2)
+        self.ax1.set_ylabel('Waveform')
+        self.ax1.grid(True, alpha=0.3)
+        
+        # Labels plot
+        label_times = np.linspace(0, self.duration, self.n_labels)
+        self.label_line, = self.ax2.plot(label_times, self.labels, 'g-', linewidth=2)
+        
+        label_type_str = "Speed" if self.label_type == 1 else "Pattern"
+        self.ax2.set_ylabel(f'{label_type_str} Labels')
+        self.ax2.set_xlabel('Time (s)')
+        
+        y_max = 9.5 if self.label_type == 1 else 3.5
+        self.ax2.set_ylim(0, y_max)
+        self.ax2.grid(True, alpha=0.3)
+        
+        self.fig.tight_layout()
+        self.canvas.draw()
+    
+    def update_plot_labels(self):
+        """Update plot with current label type"""
+        if self.ax2 and self.label_line:
+            label_type_str = "Speed" if self.label_type == 1 else "Pattern"
+            self.ax2.set_ylabel(f'{label_type_str} Labels')
+            y_max = 9.5 if self.label_type == 1 else 3.5
+            self.ax2.set_ylim(0, y_max)
+            self.canvas.draw()
+    
+    def start_update_timer(self):
+        """Start the update timer for 10fps updates"""
+        if self.update_timer:
+            self.root.after_cancel(self.update_timer)
+        self.update_display()
+    
+    def update_display(self):
+        """Update display periodically (10fps)"""
+        if not self.audio_file:
+            return
+            
+        # Update position if playing
+        if self.is_playing:
+            elapsed = time.time() - self.play_start_time
+            self.position = min(self.play_start_pos + elapsed, self.duration)
+            
+            # Auto-apply labels while playing
+            if self.current_label > 0:
+                self.apply_label()
+        
+        # Update GUI elements
+        self.position_var.set(self.position)
+        self.position_label.config(text=f"{self.position:.1f}s / {self.duration:.1f}s")
+        
+        # Update plot
+        if self.position_line:
+            self.position_line.set_xdata([self.position, self.position])
+        if self.label_line:
+            self.label_line.set_ydata(self.labels)
+        
+        # Update status
+        status_text = f"Label: {self.current_label} | Position: {self.position:.1f}s | "
+        status_text += f"Playing: {self.is_playing}"
+        self.status_label.config(text=status_text)
+        
+        # Update play button text
+        self.play_button.config(text="Pause" if self.is_playing else "Play")
+        
+        try:
+            self.canvas.draw_idle()
+        except:
+            pass
+        
+        # Schedule next update (100ms = 10fps)
+        self.update_timer = self.root.after(100, self.update_display)
+    
+    def on_key_press(self, event):
+        """Handle keyboard input"""
+        if not self.audio_file:
+            return
+            
+        key = event.keysym
+        
+        if key == 'space':
+            self.toggle_play()
+        elif key == 'Escape':
+            self.save_labels()
+        elif key == 'q':
+            self.root.quit()
+        elif key.isdigit():
+            digit = int(key)
+            max_label = 9 if self.label_type == 1 else 3
+            if digit <= max_label:
+                self.current_label = digit
+                self.current_label_var.set(digit)
+                self.apply_label()
+    
+    def on_canvas_click(self, event):
+        """Handle canvas click for seeking"""
+        if event.inaxes in [self.ax1, self.ax2] and event.xdata is not None:
+            self.seek(event.xdata)
+    
+    def on_position_change(self, value):
+        """Handle position scale change"""
+        if not self.is_playing:  # Only allow manual seeking when not playing
+            self.seek(float(value))
+    
+    def on_label_change(self):
+        """Handle label spinbox change"""
+        self.current_label = self.current_label_var.get()
+    
+    def seek(self, time_pos):
+        """Jump to position"""
+        self.position = max(0, min(time_pos, self.duration))
+        if self.is_playing:
+            sd.stop()
+            self.play_from_position()
+    
+    def toggle_play(self):
+        """Play/pause toggle"""
+        if self.is_playing:
+            sd.stop()
+            self.is_playing = False
+        else:
+            self.play_from_position()
+    
+    def play_from_position(self):
+        """Start playback from current position"""
+        start_sample = int(self.position * self.sr)
+        audio_chunk = self.y[start_sample:]
+        
+        if len(audio_chunk) > 100:  # Minimum chunk size
+            self.is_playing = True
+            self.play_start_time = time.time()
+            self.play_start_pos = self.position
+            
+            def play():
+                try:
+                    sd.play(audio_chunk, self.sr)
+                    sd.wait()
+                    self.is_playing = False
+                except:
+                    self.is_playing = False
+            
+            threading.Thread(target=play, daemon=True).start()
+    
+    def apply_label(self):
+        """Apply current label at current position"""
+        if not self.labels.size:
+            return
+            
+        label_idx = int(self.position * self.labels_per_second)
+        if 0 <= label_idx < len(self.labels):
+            # Apply to small window
+            window = max(1, self.labels_per_second // 4)  # 0.25 second window
+            start = max(0, label_idx - window//2)
+            end = min(len(self.labels), label_idx + window//2)
+            self.labels[start:end] = self.current_label
+    
+    def save_labels(self):
+        """Save labels to file"""
+        if not self.audio_file or not self.labels.size:
+            messagebox.showwarning("Warning", "No labels to save")
+            return
+        
+        try:
+            if self.label_type == 1:
+                output_path = Path(self.audio_file).with_suffix('.speedLabels.npy')
+            else:
+                output_path = Path(self.audio_file).with_suffix('.patternLabels.npy')
+            
+            np.save(output_path, self.labels)
+            messagebox.showinfo("Success", f"Labels saved to:\n{output_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save labels:\n{str(e)}")
+
+def main():
+    root = tk.Tk()
+    app = TkinterSongLabeler(root)
+    
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Stop any playing audio
+        sd.stop()
+
+if __name__ == "__main__":
+    main()
