@@ -32,6 +32,8 @@ class TkinterSongLabeler:
         self.current_label = 0
         self.play_start_time = 0
         self.play_start_pos = 0
+        self.play_thread = None
+        self.should_stop_playback = False
         
         # GUI elements
         self.position_line = None
@@ -105,7 +107,7 @@ class TkinterSongLabeler:
         self.label_spinbox.grid(row=0, column=1, padx=(0, 10))
         
         ttk.Button(label_control_frame, text="Apply Label", command=self.apply_label).grid(row=0, column=2, padx=(0, 10))
-        ttk.Button(label_control_frame, text="Save Labels", command=self.save_labels).grid(row=0, column=3)
+        ttk.Button(label_control_frame, text="Save Labels", command=self.save_mfccs_and_labels).grid(row=0, column=3)
         
         # Plot frame
         plot_frame = ttk.LabelFrame(main_frame, text="Visualization", padding="5")
@@ -179,6 +181,7 @@ Controls:
         self.labels = np.zeros(self.n_labels, dtype=int)
         
         # Reset playback state
+        self.stop_playback()
         self.is_playing = False
         self.position = 0.0
         self.current_label = 0
@@ -263,13 +266,20 @@ Controls:
             return
             
         # Update position if playing
-        if self.is_playing:
+        if self.is_playing and not self.should_stop_playback:
             elapsed = time.time() - self.play_start_time
-            self.position = min(self.play_start_pos + elapsed, self.duration)
+            new_position = self.play_start_pos + elapsed
             
-            # Auto-apply labels while playing
-            if self.current_label > 0:
-                self.apply_label()
+            # Check if we've reached the end
+            if new_position >= self.duration:
+                self.stop_playback()
+                self.position = self.duration
+            else:
+                self.position = new_position
+                
+                # Auto-apply labels while playing
+                if self.current_label > 0:
+                    self.apply_label()
         
         # Update GUI elements
         self.position_var.set(self.position)
@@ -307,7 +317,7 @@ Controls:
         if key == 'space':
             self.toggle_play()
         elif key == 'Escape':
-            self.save_labels()
+            self.save_mfccs_and_labels()
         elif key == 'q':
             self.root.quit()
         elif key.isdigit():
@@ -332,23 +342,37 @@ Controls:
         """Handle label spinbox change"""
         self.current_label = self.current_label_var.get()
     
+    def stop_playback(self):
+        """Stop current playback completely"""
+        self.should_stop_playback = True
+        sd.stop()
+        if self.play_thread and self.play_thread.is_alive():
+            self.play_thread.join(timeout=0.1)  # Brief wait for thread cleanup
+        self.is_playing = False
+        self.should_stop_playback = False
+    
     def seek(self, time_pos):
         """Jump to position"""
+        old_position = self.position
         self.position = max(0, min(time_pos, self.duration))
-        if self.is_playing:
-            sd.stop()
+        
+        # If we're playing and position changed significantly, restart playback
+        if self.is_playing and abs(self.position - old_position) > 0.1:
+            self.stop_playback()
             self.play_from_position()
     
     def toggle_play(self):
         """Play/pause toggle"""
         if self.is_playing:
-            sd.stop()
-            self.is_playing = False
+            self.stop_playback()
         else:
             self.play_from_position()
     
     def play_from_position(self):
         """Start playback from current position"""
+        # Stop any existing playback first
+        self.stop_playback()
+        
         start_sample = int(self.position * self.sr)
         audio_chunk = self.y[start_sample:]
         
@@ -356,16 +380,23 @@ Controls:
             self.is_playing = True
             self.play_start_time = time.time()
             self.play_start_pos = self.position
+            self.should_stop_playback = False
             
             def play():
                 try:
-                    sd.play(audio_chunk, self.sr)
-                    sd.wait()
-                    self.is_playing = False
-                except:
+                    # Check if we should stop before starting
+                    if not self.should_stop_playback:
+                        sd.play(audio_chunk, self.sr)
+                        sd.wait()
+                    
+                    # Only set to False if this thread wasn't interrupted
+                    if not self.should_stop_playback:
+                        self.is_playing = False
+                except Exception as e:
                     self.is_playing = False
             
-            threading.Thread(target=play, daemon=True).start()
+            self.play_thread = threading.Thread(target=play, daemon=True)
+            self.play_thread.start()
     
     def apply_label(self):
         """Apply current label at current position"""
@@ -379,23 +410,35 @@ Controls:
             start = max(0, label_idx - window//2)
             end = min(len(self.labels), label_idx + window//2)
             self.labels[start:end] = self.current_label
-    
-    def save_labels(self):
-        """Save labels to file"""
+
+
+    def save_mfccs_and_labels(self):
+        """Save MFCCs and labels to a compressed .npz file"""
         if not self.audio_file or not self.labels.size:
-            messagebox.showwarning("Warning", "No labels to save")
+            messagebox.showwarning("Warning", "No audio or labels to save")
             return
-        
+
         try:
-            if self.label_type == 1:
-                output_path = Path(self.audio_file).with_suffix('.speedLabels.npy')
+            hop_length = int(self.sr / self.labels_per_second)
+
+            # Extract MFCC features (e.g., 13 per frame)
+            mfcc = librosa.feature.mfcc(y=self.y, sr=self.sr, n_mfcc=20, hop_length=hop_length)
+            X = mfcc.T  # Shape: (num_frames, 13)
+
+            if len(X) != len(self.labels):
+                min_len = min(len(X), len(self.labels))
+                X = X[:min_len]
+                labels = self.labels[:min_len]
             else:
-                output_path = Path(self.audio_file).with_suffix('.patternLabels.npy')
-            
-            np.save(output_path, self.labels)
-            messagebox.showinfo("Success", f"Labels saved to:\n{output_path}")
+                labels = self.labels
+
+            output_path = Path("labels") / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
+            np.savez_compressed(output_path, mfcc=X, labels=labels)
+
+            messagebox.showinfo("Success", f"MFCCs and labels saved to:\n{output_path}")
+
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save labels:\n{str(e)}")
+            messagebox.showerror("Error", f"Failed to save MFCCs and labels:\n{str(e)}")
 
 def main():
     root = tk.Tk()
