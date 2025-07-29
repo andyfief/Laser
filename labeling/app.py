@@ -166,7 +166,7 @@ class SimpleSongLabeler:
             self.fig.canvas.draw_idle()
         except:
             pass
-    
+
     def save(self):
         """Save labels"""
         if self.labelType == 1:
@@ -175,7 +175,9 @@ class SimpleSongLabeler:
             output_path = output_path = Path("labels") / Path(self.audio_file).with_suffix('.patternLabels.npy').name
 
         np.save(output_path, self.labels)
-        print(f"Saved: {output_path}")
+        print(f"Saved Labels: {output_path}")
+
+
     
     def run(self):
         """Show the interface"""
