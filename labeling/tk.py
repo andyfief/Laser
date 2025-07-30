@@ -38,6 +38,8 @@ class TkinterSongLabeler:
         self.play_start_pos = 0
         self.play_thread = None
         self.should_stop_playback = False
+
+        self.auto_apply = True
         
         # GUI elements
         self.position_line = None
@@ -47,6 +49,8 @@ class TkinterSongLabeler:
         
         self.setup_gui()
         self.setup_bindings()
+        # Bind focus reset to any widget interaction
+        self.root.bind_all('<Button-1>', lambda e: self.root.after_idle(self.reset_focus))
         
     def setup_gui(self):
         """Setup the GUI layout"""
@@ -112,6 +116,33 @@ class TkinterSongLabeler:
         
         ttk.Button(label_control_frame, text="Apply Label", command=self.apply_label).grid(row=0, column=2, padx=(0, 10))
         ttk.Button(label_control_frame, text="Save Labels", command=self.save_mfccs_and_labels).grid(row=0, column=3)
+
+        quick_label_frame = ttk.LabelFrame(control_frame, text="Quick Labels", padding="5")
+        quick_label_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
+
+        # Create label buttons
+        label_buttons = [
+            (0, "0: None"),
+            (1, "1: Vocals"), 
+            (2, "2: Ambient"),
+            (3, "3: Buildup"),
+            (4, "4: Pre-Drop"),
+            (5, "5: Drop"),
+            (6, "6: Drop2")
+        ]
+
+        for i, (value, text) in enumerate(label_buttons):
+            btn = ttk.Button(quick_label_frame, text=text, 
+                            command=lambda v=value: self.set_quick_label(v))
+            btn.grid(row=0, column=i, padx=2)
+
+        # Auto-apply toggle
+        auto_apply_frame = ttk.Frame(quick_label_frame)
+        auto_apply_frame.grid(row=1, column=0, columnspan=7, pady=(10, 0))
+
+        self.auto_apply_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(auto_apply_frame, text="Toggle Label Apply", 
+                    variable=self.auto_apply_var, command=self.toggle_auto_apply).pack()
         
         # Plot frame
         plot_frame = ttk.LabelFrame(main_frame, text="Visualization", padding="5")
@@ -132,16 +163,20 @@ class TkinterSongLabeler:
         
         # Instructions
         instructions = """
-Controls:
-• SPACE: Play/Pause
-• 0-9: Set label (Speed mode) / 0-3: Set label (Pattern mode)
-• Click on plot: Seek to position
-• ESC: Save labels
-• Q: Quit
-"""
+                        Controls:
+                        • SPACE: Play/Pause
+                        • 0-9: Set label (Speed mode) / 0-3: Set label (Pattern mode)
+                        • Click on plot: Seek to position
+                        • ESC: Save labels
+                        • Q: Quit
+                        """
         instructions_label = ttk.Label(main_frame, text=instructions, justify=tk.LEFT, 
                                      font=('TkDefaultFont', 8))
         instructions_label.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
+
+    def reset_focus(self):
+        """Reset focus to main window"""
+        self.root.focus_set()
     
     def setup_bindings(self):
         """Setup keyboard bindings"""
@@ -228,13 +263,22 @@ Controls:
     def on_label_type_change(self):
         """Handle label type change"""
         self.current_label_set = self.label_type_var.get()
-        max_label = 9 if self.current_label_set == "speed" else 3
+        max_label = 9 if self.current_label_set == "speed" else 6
         self.label_spinbox.config(to=max_label)
         if self.current_label_var.get() > max_label:
             self.current_label_var.set(max_label)
             self.current_label = max_label
         if hasattr(self, 'ax2'):
             self.update_plot_labels()
+
+    def set_quick_label(self, label_value):
+        """Set current label from quick buttons"""
+        max_label = 9 if self.current_label_set == "speed" else 6
+        if label_value <= max_label:
+            self.current_label = label_value
+            self.current_label_var.set(label_value)
+            if self.auto_apply:
+                self.apply_label()
     
     def get_current_labels(self):
         """Get the currently active label array"""
@@ -259,12 +303,13 @@ Controls:
         label_times = np.linspace(0, self.duration, self.n_labels)
         current_labels = self.get_current_labels()
         self.label_line, = self.ax2.plot(label_times, current_labels, 'g-', linewidth=2)
+        self.position_line_labels = self.ax2.axvline(0, color='red', linewidth=2)  # vertical marker
         
         label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
         self.ax2.set_ylabel(f'{label_type_str} Labels')
         self.ax2.set_xlabel('Time (s)')
         
-        y_max = 9.5 if self.current_label_set == "speed" else 3.5
+        y_max = 9.5 if self.current_label_set == "speed" else 6.5
         self.ax2.set_ylim(0, y_max)
         self.ax2.grid(True, alpha=0.3)
         
@@ -276,7 +321,7 @@ Controls:
         if self.ax2 and self.label_line:
             label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
             self.ax2.set_ylabel(f'{label_type_str} Labels')
-            y_max = 9.5 if self.current_label_set == "speed" else 3.5
+            y_max = 9.5 if self.current_label_set == "speed" else 6.5
             self.ax2.set_ylim(0, y_max)
             
             # Update the line data
@@ -308,7 +353,7 @@ Controls:
                 self.position = new_position
                 
                 # Auto-apply labels while playing
-                if self.current_label > 0:
+                if self.current_label > 0 and self.auto_apply:
                     self.apply_label()
         
         # Update GUI elements
@@ -318,6 +363,8 @@ Controls:
         # Update plot
         if self.position_line:
             self.position_line.set_xdata([self.position, self.position])
+        if hasattr(self, 'position_line_labels') and self.position_line_labels: 
+            self.position_line_labels.set_xdata([self.position, self.position])
         if self.label_line:
             current_labels = self.get_current_labels()
             self.label_line.set_ydata(current_labels)
@@ -353,11 +400,12 @@ Controls:
             self.root.quit()
         elif key.isdigit():
             digit = int(key)
-            max_label = 9 if self.current_label_set == "speed" else 3
+            max_label = 9 if self.current_label_set == "speed" else 6
             if digit <= max_label:
                 self.current_label = digit
                 self.current_label_var.set(digit)
-                self.apply_label()
+                if self.auto_apply:
+                    self.apply_label()
     
     def on_canvas_click(self, event):
         """Handle canvas click for seeking"""
@@ -428,6 +476,10 @@ Controls:
             
             self.play_thread = threading.Thread(target=play, daemon=True)
             self.play_thread.start()
+
+    def toggle_auto_apply(self):
+        """Toggle auto-apply mode"""
+        self.auto_apply = self.auto_apply_var.get()
     
     def apply_label(self):
         """Apply current label at current position"""
@@ -462,18 +514,18 @@ Controls:
                 existing_data = dict(np.load(output_path))
             
             # Extract MFCC features if not already present
-            if 'mfcc' not in existing_data:
-                hop_length = int(self.sr / self.labels_per_second)
-                mfcc = librosa.feature.mfcc(y=self.y, sr=self.sr, n_mfcc=20, hop_length=hop_length)
-                X = mfcc.T  # Shape: (num_frames, 20)
+            # if 'mfcc' not in existing_data:
+            #     hop_length = int(self.sr / self.labels_per_second)
+            #     mfcc = librosa.feature.mfcc(y=self.y, sr=self.sr, n_mfcc=20, hop_length=hop_length)
+            #     X = mfcc.T  # Shape: (num_frames, 20)
                 
-                # Ensure MFCC and labels have same length
-                min_len = min(len(X), self.n_labels)
-                X = X[:min_len]
-                self.speed_labels = self.speed_labels[:min_len]
-                self.pattern_labels = self.pattern_labels[:min_len]
+            #     # Ensure MFCC and labels have same length
+            #     min_len = min(len(X), self.n_labels)
+            #     X = X[:min_len]
+            #     self.speed_labels = self.speed_labels[:min_len]
+            #     self.pattern_labels = self.pattern_labels[:min_len]
                 
-                existing_data['mfcc'] = X
+            #    existing_data['mfcc'] = X
             
             # Add current labels
             existing_data['speed_labels'] = self.speed_labels
@@ -482,7 +534,7 @@ Controls:
             # Save everything
             np.savez_compressed(output_path, **existing_data)
             
-            messagebox.showinfo("Success", f"MFCCs and labels saved to:\n{output_path}")
+            messagebox.showinfo("Success", f"MFCCs ARE NOT CURRENTLY BEING SAVED. labels saved to:\n{output_path}")
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save MFCCs and labels:\n{str(e)}")
