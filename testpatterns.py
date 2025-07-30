@@ -1,3 +1,9 @@
+""" This python file is intended to play with DMX values and come up with patterns initially. It differs from pfunctions_test because it uses
+loops instead of rendering frame by frame. It is easier for quick pattern creation/prototyping. Patterns are then moved to pattern_functions.py
+and are reduced to frame-by-frame implementation with global states.
+"""
+
+
 import time
 import random
 random.seed(time.time())
@@ -193,7 +199,7 @@ def stillBeam(speed):
     dmx.set_channel(7, random.randint(0, 127))
     dmx.set_channel(8, random.randint(0, 127))
 
-def lineWithDotsRL(speed):
+def lineWithDotsRL_UD(speed):
     # a Horizontal line going up and down, with dots moving within it from right to left.
     speed = 1/10 * speed
     
@@ -249,6 +255,43 @@ def lineWithDotsRL(speed):
         # Sleep for the smaller of the two speeds (to keep smoothness)
         time.sleep(0.02 / speed)
 
+def lineWithDotsRL_still(speed):
+    # a Horizontal line with dots moving within it from right to left. Line is stationary
+    speed = 1/10 * speed
+    
+    # Setup channels for line and dots
+    dmx.set_channel(4, 45)  # vertical line
+    dmx.set_channel(6, 32)  # rotate 90 degrees
+
+    dmx.set_channel(18, 23)  # laser 2 on
+    dmx.set_channel(19, 0)   # pattern size 100%
+    dmx.set_channel(21, 57)  # spaced dots, laser 2
+    dmx.set_channel(23, 32)  # rotate 90 degrees
+
+    # Define horizontal dot bounds (fast)
+    min_x = 0
+    max_x = 127
+
+    # Vertical pan speed factor (slower)
+    vertical_speed = speed * 0.3
+
+    # Horizontal dot speed factor (faster)
+    horizontal_speed = speed * 1.5
+
+    x = min_x
+    x_direction = 1
+
+    while True:
+        # Update horizontal dot position
+        x += x_direction * 3  # move faster side to side by 3 units per step
+        if x >= max_x:
+            x = 0
+
+        dmx.set_channel(25, x)    # dots side to side inside the line
+
+        # Sleep for the smaller of the two speeds (to keep smoothness)
+        time.sleep(0.02 / speed)
+
 def crazyDots2(speed):
     # less random but funky movement
     dmx.set_channel(4, 78)
@@ -291,12 +334,7 @@ def calculateSpeedForRange(start, stop, speed):
     return math.floor(movementSpeed)
 
 reset_dmx()
-circleZoomIn
-crazyDots
-dotRL
-dotLR
-wiggleLine
-voiceWave(4)
+lineWithDotsRL_still(5)
 
 print("Done!")
 dmx.close()

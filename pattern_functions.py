@@ -90,7 +90,7 @@ def horizontalLineRL(dmx, speed):
     if horizontalLineRL_state['i'] > 95:
         horizontalLineRL_state['i'] = 33
     
-    time.sleep(1 / (100 * speed))
+    time.sleep(1 / (50 * speed))
 
 def horizontalLineLR(dmx, speed):
     """Sweeps a horizontal line from left to right, one step per call."""
@@ -102,7 +102,7 @@ def horizontalLineLR(dmx, speed):
     if horizontalLineLR_state['i'] < 33:
         horizontalLineLR_state['i'] = 96
     
-    time.sleep(1 / (100 * speed))
+    time.sleep(1 / (50 * speed))
 
 def horizontalLineSideToSide(dmx, speed):
     """Oscillates a horizontal line back and forth, one step per call."""
@@ -121,7 +121,7 @@ def horizontalLineSideToSide(dmx, speed):
             horizontalLineSideToSide_state['direction'] = 'RL'
             horizontalLineSideToSide_state['i'] = 33
     
-    time.sleep(1 / (100 * speed))
+    time.sleep(1 / (50 * speed))
 
 def circleZoomIn(dmx, speed):
     """Zooms a circle pattern, one step per call."""
@@ -150,14 +150,7 @@ def crazyDots(dmx, speed):
     if crazyDots_state['count'] > 20:
         crazyDots_state['count'] = 0
     
-    time.sleep(1 / speed)
-
-def randomSingleDot(dmx, speed):
-    """Displays one random dot briefly, one position per call."""
-    dmx.set_channel(4, 16)
-    dmx.set_channel(7, random.randint(0, 127))
-    dmx.set_channel(8, random.randint(0, 127))
-    time.sleep(0.1)
+    time.sleep(1 / (1.5 * speed))
 
 def wiggleLine(dmx, speed):
     """Creates a waving line motion, one step per call."""
@@ -181,11 +174,12 @@ def spazzCircle(dmx, speed):
     """Random circle positions, one frame per call."""
     if not spazzCircle_state['initialized']:
         dmx.set_channel(4, 5)  # Circle
+        dmx.set_channel(2, 50)
         spazzCircle_state['initialized'] = True
     
     dmx.set_channel(7, random.randint(0, 127))
     dmx.set_channel(8, random.randint(0, 127))
-    time.sleep(1 / (50 * speed))
+    time.sleep(1 / (1.75 * speed))
 
 def spotlight(dmx, speed):
     """Bouncing spotlight with random direction changes, one frame per call."""
@@ -206,7 +200,7 @@ def spotlight(dmx, speed):
         state['dx'] = math.cos(angle)
         state['dy'] = math.sin(angle)
         state['start_time'] = time.time()
-        state['duration'] = random.uniform(1, 3)
+        state['duration'] = random.uniform(3, 5)
         state['initialized'] = True
     
     # Check if we need a new direction
@@ -262,13 +256,9 @@ def driftingDot(dmx, speed):
         
         dmx.set_channel(4, 16)  # dot
     
-    # Limit speed
-    if speed > 3:
-        speed = 3
-    
     # Control parameters
     drift_strength = 0.1 * speed
-    movement_speed = 2 * speed
+    movement_speed = 1.5 * speed
     
     # Drift the angle slightly
     state['angle'] += random.uniform(-drift_strength, drift_strength)
@@ -315,8 +305,8 @@ def stillBeam(dmx, speed):
     dmx.set_channel(8, stillBeam_state['y'])
     time.sleep(0.1)
 
-def lineWithDotsRL(dmx, speed):
-    """Horizontal line with dots moving within it, one frame per call."""
+def lineWithDotsRL_UD(dmx, speed):
+    """Horizontal line with dots moving within it, going up and down. one frame per call."""
     state = lineWithDotsRL_state
     speed = 1/10 * speed
     
@@ -331,7 +321,6 @@ def lineWithDotsRL(dmx, speed):
     # Define bounds
     min_y = 33
     max_y = 95
-    min_x = 0
     max_x = 127
     
     # Update vertical pan position (slower)
@@ -355,6 +344,30 @@ def lineWithDotsRL(dmx, speed):
     
     time.sleep(0.02 / speed)
 
+def lineWithDotsRL_still(dmx, speed):
+    """Horizontal line with dots moving within it, one frame per call."""
+    state = lineWithDotsRL_state
+    
+    # Setup channels for line and dots
+    dmx.set_channel(4, 45)   # vertical line
+    dmx.set_channel(6, 32)   # rotate 90 degrees
+    dmx.set_channel(18, 23)  # laser 2 on
+    dmx.set_channel(19, 0)   # pattern size 100%
+    dmx.set_channel(21, 57)  # spaced dots, laser 2
+    dmx.set_channel(23, 32)  # rotate 90 degrees
+    
+    min_x = 0
+    max_x = 127
+    
+    # Update horizontal dot position
+    state['x'] += state['x_direction'] * 3
+    if state['x'] >= max_x:
+        state['x'] = 0
+    
+    dmx.set_channel(25, state['x'])  # dots side to side inside the line
+    
+    time.sleep(0.15 / speed)
+
 def crazyDots2(dmx, speed):
     """Less random but funky movement using auto patterns."""
     if not crazyDots2_state['initialized']:
@@ -377,7 +390,6 @@ def twoCircleSpin(dmx, speed):
     
     movementSpeed = calculateSpeedForRange(192, 223, speed)
     dmx.set_channel(6, movementSpeed)
-    time.sleep(0.05)
 
 def voiceWave(dmx, speed):
     """Voice wave pattern using circle with auto movement."""
@@ -396,7 +408,7 @@ def reset_pattern_states():
     global horizontalLineRL_state, horizontalLineLR_state, horizontalLineSideToSide_state
     global circleZoomIn_state, wiggleLine_state, crazyDots_state, crazyDots2_state
     global spazzCircle_state, spotlight_state, driftingDot_state, stillBeam_state
-    global lineWithDotsRL_state, twoCircleSpin_state, voiceWave_state
+    global lineWithDotsRL_UD_state, twoCircleSpin_state, voiceWave_state, lineWithDotsRL_still_state
     
     dotLR_state = {'i': 33}
     dotRL_state = {'i': 96}
@@ -412,18 +424,15 @@ def reset_pattern_states():
     spotlight_state = {'x': 0, 'y': 0, 'dx': 0, 'dy': 0, 'start_time': 0, 'duration': 0, 'initialized': False}
     driftingDot_state = {'x': 0, 'y': 0, 'angle': 0, 'initialized': False}
     stillBeam_state = {'x': 0, 'y': 0, 'initialized': False}
-    lineWithDotsRL_state = {'y': 33, 'y_direction': 1, 'x': 0, 'x_direction': 1}
+    lineWithDotsRL_UD_state = {'y': 33, 'y_direction': 1, 'x': 0, 'x_direction': 1}
+    lineWithDotsRL_still_state = {'x': 0, 'x_direction': 1}
+
     twoCircleSpin_state = {'initialized': False}
     voiceWave_state = {'initialized': False}
 
-# All available pattern functions:
-# dotLR, dotRL, sideToSideDot, horizontalLineRL, horizontalLineLR, horizontalLineSideToSide,
-# circleZoomIn, crazyDots, randomSingleDot, wiggleLine, spazzCircle, spotlight, driftingDot,
-# stillBeam, lineWithDotsRL, crazyDots2, twoCircleSpin, voiceWave
-
-# Pattern groups dictionary - fill in the functions as needed
+# Pattern groups dictionary
 pattern_groups = {
-    1: [stillBeam, dotLR, dotRL, sideToSideDot, randomSingleDot, horizontalLineRL, horizontalLineLR, horizontalLineSideToSide],  # Fill with desired functions
-    2: [circleZoomIn, crazyDots, crazyDots2, lineWithDotsRL, spazzCircle],  # Fill with desired functions  
+    1: [stillBeam, dotLR, dotRL, sideToSideDot, horizontalLineRL, horizontalLineLR, horizontalLineSideToSide],  # Fill with desired functions
+    2: [circleZoomIn, crazyDots, crazyDots2, lineWithDotsRL_UD, lineWithDotsRL_still, spazzCircle],  # Fill with desired functions  
     3: [wiggleLine, spotlight, driftingDot, voiceWave, twoCircleSpin],  # Fill with desired functions
 }
