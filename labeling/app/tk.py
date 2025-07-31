@@ -164,13 +164,14 @@ class TkinterSongLabeler:
         
         # Instructions
         instructions = """
-                        Controls:
-                        • SPACE: Play/Pause
-                        • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
-                        • Click on plot: Seek to position
-                        • ESC: Save labels
-                        • Q: Quit
-                        """
+                Controls:
+                • SPACE: Play/Pause
+                • LEFT/RIGHT ARROWS: Skip backward/forward 1 second
+                • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
+                • Click on plot: Seek to position
+                • ESC: Save labels
+                • Q: Quit
+                """
         instructions_label = ttk.Label(main_frame, text=instructions, justify=tk.LEFT, 
                                      font=('TkDefaultFont', 8))
         instructions_label.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
@@ -335,6 +336,28 @@ class TkinterSongLabeler:
         if self.update_timer:
             self.root.after_cancel(self.update_timer)
         self.update_display()
+
+    def skip_time(self, delta_seconds):
+        """Skip forward/backward by delta_seconds, applying labels if auto_apply is on"""
+        if not self.audio_file:
+            return
+            
+        old_position = self.position
+        new_position = max(0, min(self.position + delta_seconds, self.duration))
+        
+        # If auto_apply is on, apply current label to the range we're skipping over
+        if self.auto_apply and abs(delta_seconds) > 0.01:  # Only if meaningful skip
+            start_time = min(old_position, new_position)
+            end_time = max(old_position, new_position)
+            self.apply_label_range(start_time, end_time)
+        
+        # Update position
+        self.position = new_position
+        
+        # If we're playing and position changed significantly, restart playback
+        if self.is_playing and abs(new_position - old_position) > 0.1:
+            self.stop_playback()
+            self.play_from_position()
     
     def update_display(self):
         """Update display periodically (10fps)"""
@@ -407,6 +430,18 @@ class TkinterSongLabeler:
                 self.current_label_var.set(digit)
                 if self.auto_apply:
                     self.apply_label()
+        elif key == 'Left':
+            if event.state & 0x0001: 
+                self.skip_time(-3) # skip 3 seconds
+            else:
+                self.skip_time(-0.2)  # Skip back 1/5 second
+        elif key == 'Right':
+            if event.state & 0x0001:
+                self.skip_time(3)
+            else:
+                self.skip_time(0.2)
+
+            
     
     def on_canvas_click(self, event):
         """Handle canvas click for seeking"""
@@ -495,6 +530,22 @@ class TkinterSongLabeler:
             start = max(0, label_idx - window//2)
             end = min(len(current_labels), label_idx + window//2)
             current_labels[start:end] = self.current_label
+
+    def apply_label_range(self, start_time, end_time):
+        """Apply current label to a time range"""
+        current_labels = self.get_current_labels()
+        if not current_labels.size:
+            return
+            
+        start_idx = int(start_time * self.labels_per_second)
+        end_idx = int(end_time * self.labels_per_second)
+        
+        # Ensure indices are within bounds
+        start_idx = max(0, start_idx)
+        end_idx = min(len(current_labels), end_idx)
+        
+        if start_idx < end_idx:
+            current_labels[start_idx:end_idx] = self.current_label
 
     def save_mfccs_and_labels(self):
         """Save MFCCs and labels to a compressed .npz file"""
