@@ -1,2 +1,3 @@
 *.wav
 spleeter-env/
+spleeter/pretrained_models

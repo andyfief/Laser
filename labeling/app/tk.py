@@ -11,9 +11,6 @@ import time
 from pathlib import Path
 import os
 
-import subprocess
-import json
-
 class TkinterSongLabeler:
     def __init__(self, root):
         self.root = root
@@ -54,10 +51,6 @@ class TkinterSongLabeler:
         self.setup_bindings()
         # Bind focus reset to any widget interaction
         self.root.bind_all('<Button-1>', lambda e: self.root.after_idle(self.reset_focus))
-
-        self.stems = {}
-        self.current_stem = "original"  # Default to original audio
-        self.available_stems = ["original"]
         
     def setup_gui(self):
         """Setup the GUI layout"""
@@ -87,7 +80,7 @@ class TkinterSongLabeler:
         self.label_type_var = tk.StringVar(value="speed")
         ttk.Radiobutton(label_type_frame, text="Speed Labels (0-9)", variable=self.label_type_var, 
                        value="speed", command=self.on_label_type_change).grid(row=0, column=0, padx=(0, 20))
-        ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-7)", variable=self.label_type_var, 
+        ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-3)", variable=self.label_type_var, 
                        value="pattern", command=self.on_label_type_change).grid(row=0, column=1)
         
         # Control frame
@@ -135,8 +128,7 @@ class TkinterSongLabeler:
             (3, "3: Buildup"),
             (4, "4: Pre-Drop"),
             (5, "5: Drop"),
-            (6, "6: Drop2"),
-            (7, "7: Hold")
+            (6, "6: Drop2")
         ]
 
         for i, (value, text) in enumerate(label_buttons):
@@ -181,20 +173,6 @@ class TkinterSongLabeler:
         instructions_label = ttk.Label(main_frame, text=instructions, justify=tk.LEFT, 
                                      font=('TkDefaultFont', 8))
         instructions_label.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
-
-
-        stem_frame = ttk.LabelFrame(file_frame, text="Audio Source")
-        stem_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        ttk.Label(stem_frame, text="View:").grid(row=0, column=0, padx=(0, 5))
-        self.stem_var = tk.StringVar(value="original")
-        self.stem_combo = ttk.Combobox(stem_frame, textvariable=self.stem_var, 
-                                      values=["original"], state="readonly")
-        self.stem_combo.grid(row=0, column=1, padx=(0, 10))
-        self.stem_combo.bind('<<ComboboxSelected>>', self.on_stem_change)
-        
-        ttk.Button(stem_frame, text="Separate Audio", 
-                  command=self.separate_audio).grid(row=0, column=2)
 
     def reset_focus(self):
         """Reset focus to main window"""
@@ -269,7 +247,7 @@ class TkinterSongLabeler:
     
     def load_existing_labels(self):
         """Load existing labels if the npz file exists"""
-        output_path = Path(__file__).parent.parent / "labels" / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
+        output_path = Path("labels") / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
         
         if output_path.exists():
             try:
@@ -285,7 +263,7 @@ class TkinterSongLabeler:
     def on_label_type_change(self):
         """Handle label type change"""
         self.current_label_set = self.label_type_var.get()
-        max_label = 9 if self.current_label_set == "speed" else 7
+        max_label = 9 if self.current_label_set == "speed" else 6
         self.label_spinbox.config(to=max_label)
         if self.current_label_var.get() > max_label:
             self.current_label_var.set(max_label)
@@ -295,7 +273,7 @@ class TkinterSongLabeler:
 
     def set_quick_label(self, label_value):
         """Set current label from quick buttons"""
-        max_label = 9 if self.current_label_set == "speed" else 7
+        max_label = 9 if self.current_label_set == "speed" else 6
         if label_value <= max_label:
             self.current_label = label_value
             self.current_label_var.set(label_value)
@@ -331,7 +309,7 @@ class TkinterSongLabeler:
         self.ax2.set_ylabel(f'{label_type_str} Labels')
         self.ax2.set_xlabel('Time (s)')
         
-        y_max = 9.5 if self.current_label_set == "speed" else 7.5
+        y_max = 9.5 if self.current_label_set == "speed" else 6.5
         self.ax2.set_ylim(0, y_max)
         self.ax2.grid(True, alpha=0.3)
         
@@ -343,7 +321,7 @@ class TkinterSongLabeler:
         if self.ax2 and self.label_line:
             label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
             self.ax2.set_ylabel(f'{label_type_str} Labels')
-            y_max = 9.5 if self.current_label_set == "speed" else 7.5
+            y_max = 9.5 if self.current_label_set == "speed" else 6.5
             self.ax2.set_ylim(0, y_max)
             
             # Update the line data
@@ -375,7 +353,7 @@ class TkinterSongLabeler:
                 self.position = new_position
                 
                 # Auto-apply labels while playing
-                if self.auto_apply:
+                if self.current_label > 0 and self.auto_apply:
                     self.apply_label()
         
         # Update GUI elements
@@ -422,7 +400,7 @@ class TkinterSongLabeler:
             self.root.quit()
         elif key.isdigit():
             digit = int(key)
-            max_label = 9 if self.current_label_set == "speed" else 7
+            max_label = 9 if self.current_label_set == "speed" else 6
             if digit <= max_label:
                 self.current_label = digit
                 self.current_label_var.set(digit)
@@ -473,14 +451,6 @@ class TkinterSongLabeler:
         """Start playback from current position"""
         # Stop any existing playback first
         self.stop_playback()
-
-        # Choose audio source based on current stem
-        if self.current_stem == "original":
-            audio_source = self.y
-        elif self.current_stem in self.stems:
-            audio_source = self.stems[self.current_stem]
-        else:
-            audio_source = self.y  # Fallback to original
         
         start_sample = int(self.position * self.sr)
         audio_chunk = self.y[start_sample:]
@@ -525,94 +495,6 @@ class TkinterSongLabeler:
             end = min(len(current_labels), label_idx + window//2)
             current_labels[start:end] = self.current_label
 
-    def separate_audio(self):
-        """Run Spleeter separation via subprocess"""
-        if not self.audio_file:
-            messagebox.showwarning("Warning", "No audio loaded")
-            return
-            
-        self.status_label.config(text="Separating audio with Spleeter...")
-        self.root.update()
-        
-        try:
-            # Path to your Python 3.9 venv
-            venv_python = "../spleeter-env/Scripts/python.exe"  # Update this path
-            bridge_script = "../spleeter-env/spleeter_bridge.py"  # Update this path
-            
-            result = subprocess.run([
-                venv_python, bridge_script, self.audio_file
-            ], capture_output=True, text=True, timeout=300)  # 5 min timeout
-            
-            if result.returncode == 0:
-                separation_info = json.loads(result.stdout)
-                if separation_info["success"]:
-                    self.load_separated_stems(separation_info)
-                    self.status_label.config(text="Audio separation complete!")
-                else:
-                    raise Exception(separation_info.get("error", "Unknown error"))
-            else:
-                raise Exception(f"Spleeter failed: {result.stderr}")
-                
-        except subprocess.TimeoutExpired:
-            messagebox.showerror("Error", "Audio separation timed out")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to separate audio:\n{str(e)}")
-            self.status_label.config(text="Separation failed")
-
-    def load_separated_stems(self, separation_info):
-        """Load the separated audio stems"""
-        cache_dir = Path(separation_info["cache_dir"])
-        
-        # Load all available stems
-        self.stems = {}
-        available_stems = ["original"]  # Always include original
-        
-        for stem_file in cache_dir.glob("*.wav"):
-            stem_name = stem_file.stem
-            try:
-                stem_audio, _ = librosa.load(stem_file, sr=self.sr)
-                # Ensure same length as original
-                min_len = min(len(stem_audio), len(self.y))
-                self.stems[stem_name] = stem_audio[:min_len]
-                available_stems.append(stem_name)
-            except Exception as e:
-                print(f"Warning: Could not load stem {stem_name}: {e}")
-        
-        # Update GUI
-        self.available_stems = available_stems
-        self.stem_combo.config(values=available_stems)
-        
-        messagebox.showinfo("Success", f"Loaded {len(self.stems)} stems: {list(self.stems.keys())}")
-
-    def on_stem_change(self, event=None):
-        """Handle stem selection change"""
-        new_stem = self.stem_var.get()
-        if new_stem != self.current_stem:
-            self.current_stem = new_stem
-            self.update_audio_display()
-
-    def update_audio_display(self):
-        """Update the waveform display based on current stem"""
-        if self.current_stem == "original":
-            display_audio = self.y
-        elif self.current_stem in self.stems:
-            display_audio = self.stems[self.current_stem]
-        else:
-            return  # Invalid stem
-        
-        # Update the waveform plot
-        self.ax1.clear()
-        step = max(1, len(display_audio) // 2000)
-        times = np.linspace(0, self.duration, len(display_audio[::step]))
-        self.ax1.plot(times, display_audio[::step], 'b-', alpha=0.6, linewidth=0.5)
-        self.position_line = self.ax1.axvline(self.position, color='red', linewidth=2)
-        self.ax1.set_ylabel(f'Waveform ({self.current_stem})')
-        self.ax1.grid(True, alpha=0.3)
-        
-        # Redraw
-        self.fig.tight_layout()
-        self.canvas.draw()
-
     def save_mfccs_and_labels(self):
         """Save MFCCs and labels to a compressed .npz file"""
         if not self.audio_file:
@@ -621,8 +503,8 @@ class TkinterSongLabeler:
 
         try:
             # Ensure labels directory exists
-            labels_dir = Path(__file__).parent.parent / "labels"
-            labels_dir.mkdir(parents=True, exist_ok=True)
+            labels_dir = Path("labels")
+            labels_dir.mkdir(exist_ok=True)
             
             output_path = labels_dir / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
             
