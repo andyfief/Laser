@@ -80,7 +80,7 @@ class TkinterSongLabeler:
         self.label_type_var = tk.StringVar(value="speed")
         ttk.Radiobutton(label_type_frame, text="Speed Labels (0-9)", variable=self.label_type_var, 
                        value="speed", command=self.on_label_type_change).grid(row=0, column=0, padx=(0, 20))
-        ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-3)", variable=self.label_type_var, 
+        ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-7)", variable=self.label_type_var, 
                        value="pattern", command=self.on_label_type_change).grid(row=0, column=1)
         
         # Control frame
@@ -128,7 +128,8 @@ class TkinterSongLabeler:
             (3, "3: Buildup"),
             (4, "4: Pre-Drop"),
             (5, "5: Drop"),
-            (6, "6: Drop2")
+            (6, "6: Drop2"),
+            (7, "7: Hold")
         ]
 
         for i, (value, text) in enumerate(label_buttons):
@@ -165,7 +166,7 @@ class TkinterSongLabeler:
         instructions = """
                         Controls:
                         • SPACE: Play/Pause
-                        • 0-9: Set label (Speed mode) / 0-3: Set label (Pattern mode)
+                        • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
                         • Click on plot: Seek to position
                         • ESC: Save labels
                         • Q: Quit
@@ -263,7 +264,7 @@ class TkinterSongLabeler:
     def on_label_type_change(self):
         """Handle label type change"""
         self.current_label_set = self.label_type_var.get()
-        max_label = 9 if self.current_label_set == "speed" else 6
+        max_label = 9 if self.current_label_set == "speed" else 7
         self.label_spinbox.config(to=max_label)
         if self.current_label_var.get() > max_label:
             self.current_label_var.set(max_label)
@@ -273,7 +274,7 @@ class TkinterSongLabeler:
 
     def set_quick_label(self, label_value):
         """Set current label from quick buttons"""
-        max_label = 9 if self.current_label_set == "speed" else 6
+        max_label = 9 if self.current_label_set == "speed" else 7
         if label_value <= max_label:
             self.current_label = label_value
             self.current_label_var.set(label_value)
@@ -309,7 +310,7 @@ class TkinterSongLabeler:
         self.ax2.set_ylabel(f'{label_type_str} Labels')
         self.ax2.set_xlabel('Time (s)')
         
-        y_max = 9.5 if self.current_label_set == "speed" else 6.5
+        y_max = 9.5 if self.current_label_set == "speed" else 7.5
         self.ax2.set_ylim(0, y_max)
         self.ax2.grid(True, alpha=0.3)
         
@@ -321,7 +322,7 @@ class TkinterSongLabeler:
         if self.ax2 and self.label_line:
             label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
             self.ax2.set_ylabel(f'{label_type_str} Labels')
-            y_max = 9.5 if self.current_label_set == "speed" else 6.5
+            y_max = 9.5 if self.current_label_set == "speed" else 7.5
             self.ax2.set_ylim(0, y_max)
             
             # Update the line data
@@ -353,7 +354,7 @@ class TkinterSongLabeler:
                 self.position = new_position
                 
                 # Auto-apply labels while playing
-                if self.current_label > 0 and self.auto_apply:
+                if self.auto_apply:
                     self.apply_label()
         
         # Update GUI elements
@@ -400,7 +401,7 @@ class TkinterSongLabeler:
             self.root.quit()
         elif key.isdigit():
             digit = int(key)
-            max_label = 9 if self.current_label_set == "speed" else 6
+            max_label = 9 if self.current_label_set == "speed" else 7
             if digit <= max_label:
                 self.current_label = digit
                 self.current_label_var.set(digit)
