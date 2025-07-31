@@ -29,7 +29,12 @@ class TkinterSongLabeler:
         self.speed_labels = None
         self.pattern_labels = None
         self.current_label_set = "speed"  # Current active label set
-        
+
+        # Plateau selection state
+        self.selected_plateau = None  # (start_idx, end_idx, label_value)
+        self.plateau_highlight = None  # matplotlib patch for highlighting
+        self.edit_popup = None  # reference to popup window
+                
         # Playback state
         self.is_playing = False
         self.position = 0.0
@@ -164,14 +169,16 @@ class TkinterSongLabeler:
         
         # Instructions
         instructions = """
-                Controls:
-                • SPACE: Play/Pause
-                • LEFT/RIGHT ARROWS: Skip backward/forward 1 second
-                • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
-                • Click on plot: Seek to position
-                • ESC: Save labels
-                • Q: Quit
-                """
+        Controls:
+        • SPACE: Play/Pause
+        • LEFT/RIGHT ARROWS: Skip backward/forward 0.2s (hold Shift for 3s)
+        • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
+        • Left click on plot: Seek to position
+        • Right click on labels plot: Select plateau for editing
+        • D: Deselect current plateau
+        • ESC: Save labels
+        • Q: Quit
+        """
         instructions_label = ttk.Label(main_frame, text=instructions, justify=tk.LEFT, 
                                      font=('TkDefaultFont', 8))
         instructions_label.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
@@ -306,6 +313,8 @@ class TkinterSongLabeler:
         current_labels = self.get_current_labels()
         self.label_line, = self.ax2.plot(label_times, current_labels, 'g-', linewidth=2)
         self.position_line_labels = self.ax2.axvline(0, color='red', linewidth=2)  # vertical marker
+
+        self.plateau_highlight = None
         
         label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
         self.ax2.set_ylabel(f'{label_type_str} Labels')
@@ -439,14 +448,156 @@ class TkinterSongLabeler:
             if event.state & 0x0001:
                 self.skip_time(3)
             else:
-                self.skip_time(0.2)
-
-            
+                self.skip_time(0.2)    
+        elif key == 'd':
+             self.clear_plateau_selection()
     
     def on_canvas_click(self, event):
         """Handle canvas click for seeking"""
-        if event.inaxes in [self.ax1, self.ax2] and event.xdata is not None:
+        if event.inaxes == self.ax1 and event.xdata is not None:
             self.seek(event.xdata)
+            
+        elif event.inaxes == self.ax2 and event.xdata is not None:
+        # Labels plot click - check for plateau selection
+            if event.button == 3:  # Right click for plateau selection
+                plateau = self.find_plateau_at_position(event.xdata)
+                if plateau:
+                    self.selected_plateau = plateau
+                    start_idx, end_idx, label_value = plateau
+                    self.highlight_plateau(start_idx, end_idx)
+                    self.show_plateau_edit_dialog(plateau)
+            else:  # Left click - seek as before
+                self.seek(event.xdata)
+
+    def find_plateau_at_position(self, time_pos):
+        """Find the plateau (continuous same-value region) at the given time position"""
+        current_labels = self.get_current_labels()
+        
+        # Convert time to label index
+        label_idx = int(time_pos * self.labels_per_second)
+        if label_idx < 0 or label_idx >= len(current_labels):
+            return None
+        
+        label_value = current_labels[label_idx]
+        
+        # Find start of plateau (go backwards)
+        start_idx = label_idx
+        while start_idx > 0 and current_labels[start_idx - 1] == label_value:
+            start_idx -= 1
+        
+        # Find end of plateau (go forwards)  
+        end_idx = label_idx
+        while end_idx < len(current_labels) - 1 and current_labels[end_idx + 1] == label_value:
+            end_idx += 1
+        
+        return (start_idx, end_idx, label_value)
+    
+    def highlight_plateau(self, start_idx, end_idx):
+        """Highlight the selected plateau on the plot"""
+        # Remove existing highlight
+        if self.plateau_highlight:
+            self.plateau_highlight.remove()
+        
+        # Convert indices to time
+        start_time = start_idx / self.labels_per_second
+        end_time = (end_idx + 1) / self.labels_per_second  # +1 to include the end point
+        
+        # Create highlight rectangle
+        y_max = 9.5 if self.current_label_set == "speed" else 7.5
+        self.plateau_highlight = self.ax2.axvspan(start_time, end_time, 
+                                                alpha=0.3, color='yellow', 
+                                                zorder=10)
+        self.canvas.draw()
+
+    def clear_plateau_selection(self):
+        """Clear the current plateau selection and highlighting"""
+        # Remove highlight
+        if self.plateau_highlight:
+            self.plateau_highlight.remove()
+            self.plateau_highlight = None
+            self.canvas.draw()
+        
+        # Clear selection
+        self.selected_plateau = None
+        
+        # Close edit popup if open
+        if self.edit_popup and self.edit_popup.winfo_exists():
+            self.edit_popup.destroy()
+            self.edit_popup = None
+
+    def show_plateau_edit_dialog(self, plateau):
+        """Show dialog to edit the selected plateau"""
+        start_idx, end_idx, current_value = plateau
+        
+        # Create popup window
+        popup = tk.Toplevel(self.root)
+        popup.title("Edit Plateau")
+        popup.geometry("300x150")
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup
+        popup.geometry("+%d+%d" % (self.root.winfo_rootx() + 50, 
+                                self.root.winfo_rooty() + 50))
+        
+        # Content
+        ttk.Label(popup, text=f"Plateau: indices {start_idx}-{end_idx}").pack(pady=10)
+        ttk.Label(popup, text=f"Current value: {current_value}").pack()
+        ttk.Label(popup, text=f"Duration: {(end_idx - start_idx + 1) / self.labels_per_second:.2f}s").pack()
+        
+        # Entry for new value
+        entry_frame = ttk.Frame(popup)
+        entry_frame.pack(pady=10)
+        ttk.Label(entry_frame, text="New value:").pack(side=tk.LEFT)
+        
+        new_value_var = tk.StringVar(value=str(current_value))
+        entry = ttk.Entry(entry_frame, textvariable=new_value_var, width=10)
+        entry.pack(side=tk.LEFT, padx=(5, 0))
+        entry.focus()
+        entry.select_range(0, tk.END)
+        
+        # Buttons
+        button_frame = ttk.Frame(popup)
+        button_frame.pack(pady=10)
+
+        def apply_change():
+            try:
+                new_value = int(new_value_var.get())
+                max_label = 9 if self.current_label_set == "speed" else 7
+                if 0 <= new_value <= max_label:
+                    self.apply_plateau_change(start_idx, end_idx, new_value)
+                    popup.destroy()
+                else:
+                    messagebox.showerror("Error", f"Value must be between 0 and {max_label}")
+            except ValueError:
+                messagebox.showerror("Error", "Please enter a valid integer")
+        
+        def cancel():
+            # Remove highlight
+            if self.plateau_highlight:
+                self.plateau_highlight.remove()
+                self.plateau_highlight = None
+                self.canvas.draw()
+            popup.destroy()
+        
+        ttk.Button(button_frame, text="Apply", command=apply_change).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(button_frame, text="Cancel", command=cancel).pack(side=tk.LEFT)
+        
+        # Bind Enter and Escape keys
+        popup.bind('<Return>', lambda e: apply_change())
+        popup.bind('<Escape>', lambda e: cancel())
+
+    def apply_plateau_change(self, start_idx, end_idx, new_value):
+        """Apply the new value to the selected plateau"""
+        current_labels = self.get_current_labels()
+        current_labels[start_idx:end_idx + 1] = new_value
+        
+        self.clear_plateau_selection()
+        
+        # Update plot
+        self.update_plot_labels()
+        
+        print(f"Changed plateau indices {start_idx}-{end_idx} to value {new_value}")
     
     def on_position_change(self, value):
         """Handle position scale change"""
