@@ -93,6 +93,18 @@ class TkinterSongLabeler:
         ttk.Radiobutton(label_type_frame, text="Pattern Labels (0-7)", variable=self.label_type_var, 
                        value="pattern", command=self.on_label_type_change).grid(row=0, column=1)
         
+        # Copy buttons frame
+        copy_frame = ttk.Frame(label_type_frame)
+        copy_frame.grid(row=1, column=0, columnspan=2, pady=(10, 0))
+
+        self.copy_speed_button = ttk.Button(copy_frame, text="Copy Speed → Pattern", 
+                                        command=self.copy_speed_to_pattern, state="disabled")
+        self.copy_speed_button.grid(row=0, column=0, padx=(0, 10))
+
+        self.copy_pattern_button = ttk.Button(copy_frame, text="Copy Pattern → Speed", 
+                                            command=self.copy_pattern_to_speed, state="disabled")
+        self.copy_pattern_button.grid(row=0, column=1)
+        
         # Control frame
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="5")
         control_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
@@ -268,6 +280,8 @@ class TkinterSongLabeler:
         
         # Start update timer
         self.start_update_timer()
+
+        self.update_copy_button_states()
         
         self.status_label.config(text=f"Ready! {self.duration:.1f}s audio, {self.n_labels} labels")
     
@@ -296,6 +310,8 @@ class TkinterSongLabeler:
             self.current_label = max_label
         if hasattr(self, 'ax2'):
             self.update_plot_labels()
+
+        self.update_copy_button_states()
 
     def set_quick_label(self, label_value):
         """Set current label from quick buttons"""
@@ -631,6 +647,68 @@ class TkinterSongLabeler:
             self.divider2_idx = -1
         self.update_divider_display()
 
+    def copy_speed_to_pattern(self):
+        """Copy speed labels to pattern labels with confirmation"""
+        if not self.confirm_copy_operation("speed labels", "pattern labels"):
+            return
+        
+        # Copy speed labels to pattern labels
+        self.pattern_labels = self.speed_labels.copy()
+        
+        # Clamp pattern labels to valid range (0-7)
+        self.pattern_labels = np.clip(self.pattern_labels, 0, 7)
+        
+        # Update display
+        self.update_plot_labels()
+        self.update_copy_button_states()
+        
+        print("Copied speed labels to pattern labels (clamped to 0-7)")
+
+    def copy_pattern_to_speed(self):
+        """Copy pattern labels to speed labels with confirmation"""
+        if not self.confirm_copy_operation("pattern labels", "speed labels"):
+            return
+        
+        # Copy pattern labels to speed labels
+        self.speed_labels = self.pattern_labels.copy()
+        
+        # Update display
+        self.update_plot_labels()
+        self.update_copy_button_states()
+        
+        print("Copied pattern labels to speed labels")
+
+    def confirm_copy_operation(self, source_type, target_type):
+        """Show confirmation dialog for copy operation"""
+        message = f"This will overwrite all current {target_type} with {source_type}.\n\nAre you sure you want to continue?"
+        
+        result = messagebox.askyesno("Confirm Copy Operation", message, 
+                                    icon='warning', default='no')
+        return result
+    
+    def update_copy_button_states(self):
+        """Update the enabled/disabled state of copy buttons based on current conditions"""
+        if not hasattr(self, 'copy_speed_button') or not hasattr(self, 'copy_pattern_button'):
+            return
+        
+        # Check if speed labels have non-zero values
+        speed_has_nonzero = self.speed_labels is not None and np.any(self.speed_labels != 0)
+        
+        # Check if pattern labels have non-zero values  
+        pattern_has_nonzero = self.pattern_labels is not None and np.any(self.pattern_labels != 0)
+        
+        # Copy Speed → Pattern button: enabled if speed has non-zero AND current set is pattern
+        if speed_has_nonzero and self.current_label_set == "pattern":
+            self.copy_speed_button.config(state="normal")
+        else:
+            self.copy_speed_button.config(state="disabled")
+        
+        # Copy Pattern → Speed button: enabled if pattern has non-zero AND current set is speed
+        if pattern_has_nonzero and self.current_label_set == "speed":
+            self.copy_pattern_button.config(state="normal")
+        else:
+            self.copy_pattern_button.config(state="disabled")
+
     def apply_plateau_change(self, start_idx, end_idx, new_value):
         """Apply the new value to the selected plateau"""
         current_labels = self.get_current_labels()
@@ -641,6 +719,8 @@ class TkinterSongLabeler:
         
         # Update plot
         self.update_plot_labels()
+
+        self.update_copy_button_states()
         
         print(f"Changed plateau indices {start_idx}-{end_idx} to value {new_value}")
 
@@ -770,6 +850,8 @@ class TkinterSongLabeler:
             start = max(0, label_idx - window//2)
             end = min(len(current_labels), label_idx + window//2)
             current_labels[start:end] = self.current_label
+
+        self.update_copy_button_states()
 
     def apply_label_range(self, start_time, end_time):
         """Apply current label to a time range"""
