@@ -34,6 +34,11 @@ class TkinterSongLabeler:
         self.selected_plateau = None  # (start_idx, end_idx, label_value)
         self.plateau_highlight = None  # matplotlib patch for highlighting
         self.edit_popup = None  # reference to popup window
+
+        #Plateau Dividers
+        self.divider1_idx = -1  # First divider index
+        self.divider2_idx = -1  # Second divider index
+        self.divider_lines = []  # Visual divider lines on plot
                 
         # Playback state
         self.is_playing = False
@@ -123,7 +128,7 @@ class TkinterSongLabeler:
         ttk.Button(label_control_frame, text="Save Labels", command=self.save_mfccs_and_labels).grid(row=0, column=3)
 
         quick_label_frame = ttk.LabelFrame(control_frame, text="Quick Labels", padding="5")
-        quick_label_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
+        quick_label_frame.grid(row=3, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
 
         # Create label buttons
         label_buttons = [
@@ -162,6 +167,16 @@ class TkinterSongLabeler:
         
         self.canvas = FigureCanvasTkAgg(self.fig, plot_frame)
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Divider controls frame
+        divider_frame = ttk.LabelFrame(control_frame, text="Divider Controls", padding="5")
+        divider_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
+        # First row of divider buttons
+        ttk.Button(divider_frame, text="Insert Divider", command=self.insert_divider).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(divider_frame, text="Reset All Dividers", command=lambda: self.reset_dividers(1)).grid(row=0, column=1, padx=(0, 10))
+        # Second row of divider buttons
+        ttk.Button(divider_frame, text="Reset Orange Div", command=lambda: self.reset_dividers(2)).grid(row=1, column=0, padx=(0, 10))
+        ttk.Button(divider_frame, text="Reset Purple Div", command=lambda: self.reset_dividers(3)).grid(row=1, column=1, padx=(0, 10))
         
         # Status bar
         self.status_label = ttk.Label(main_frame, text="Ready - Load an audio file to begin")
@@ -170,15 +185,17 @@ class TkinterSongLabeler:
         # Instructions
         instructions = """
         Controls:
-        • SPACE: Play/Pause
-        • LEFT/RIGHT ARROWS: Skip backward/forward 0.2s (hold Shift for 3s)
+        • SPACE: Play/Pause 
+        • LEFT/RIGHT ARROWS: Skip backward/forward 0.2s (hold Shift for 3s) 
         • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
-        • Left click on plot: Seek to position
-        • Right click on labels plot: Select plateau for editing
+        • Left click on plot: Seek to position 
+        • Right click on labels plot: Select plateau for editing 
         • D: Deselect current plateau
-        • ESC: Save labels
+        • I: Insert divider at current position 
+        • ESC: Save labels 
         • Q: Quit
         """
+        
         instructions_label = ttk.Label(main_frame, text=instructions, justify=tk.LEFT, 
                                      font=('TkDefaultFont', 8))
         instructions_label.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
@@ -451,6 +468,8 @@ class TkinterSongLabeler:
                 self.skip_time(0.2)    
         elif key == 'd':
              self.clear_plateau_selection()
+        elif key == 'i':
+            self.insert_divider()
     
     def on_canvas_click(self, event):
         """Handle canvas click for seeking"""
@@ -470,7 +489,7 @@ class TkinterSongLabeler:
                 self.seek(event.xdata)
 
     def find_plateau_at_position(self, time_pos):
-        """Find the plateau (continuous same-value region) at the given time position"""
+        """Find the plateau (continuous same-value region) at the given time position, respecting dividers"""
         current_labels = self.get_current_labels()
         
         # Convert time to label index
@@ -480,15 +499,30 @@ class TkinterSongLabeler:
         
         label_value = current_labels[label_idx]
         
-        # Find start of plateau (go backwards)
+        # Get divider positions (sorted)
+        dividers = []
+        if self.divider1_idx >= 0:
+            dividers.append(self.divider1_idx)
+        if self.divider2_idx >= 0:
+            dividers.append(self.divider2_idx)
+        dividers.sort()
+        
+        # Find start of plateau (go backwards until value changes or hit a divider)
         start_idx = label_idx
         while start_idx > 0 and current_labels[start_idx - 1] == label_value:
+            # Check if we hit a divider
+            if start_idx in dividers:
+                break
             start_idx -= 1
         
-        # Find end of plateau (go forwards)  
+        # Find end of plateau (go forwards until value changes or hit a divider)
         end_idx = label_idx
         while end_idx < len(current_labels) - 1 and current_labels[end_idx + 1] == label_value:
-            end_idx += 1
+            # Check if we hit a divider
+            end_idx += 1 # move to the position first since we'ere checking the end
+            if end_idx in dividers:
+                break
+            
         
         return (start_idx, end_idx, label_value)
     
@@ -587,17 +621,72 @@ class TkinterSongLabeler:
         popup.bind('<Return>', lambda e: apply_change())
         popup.bind('<Escape>', lambda e: cancel())
 
+    def reset_dividers(self, mode: int):
+        if mode == 1: # reset both
+            self.divider1_idx = -1
+            self.divider2_idx = -1
+        if mode == 2: # reset yellow
+            self.divider1_idx = -1
+        if mode == 3: # reset purple
+            self.divider2_idx = -1
+        self.update_divider_display()
+
     def apply_plateau_change(self, start_idx, end_idx, new_value):
         """Apply the new value to the selected plateau"""
         current_labels = self.get_current_labels()
         current_labels[start_idx:end_idx + 1] = new_value
-        
+
+        self.reset_dividers(3)
         self.clear_plateau_selection()
         
         # Update plot
         self.update_plot_labels()
         
         print(f"Changed plateau indices {start_idx}-{end_idx} to value {new_value}")
+
+    def insert_divider(self):
+        """Insert a divider at the current position"""
+        if not self.audio_file:
+            return
+            
+        # Convert current position to label index
+        label_idx = int(self.position * self.labels_per_second)
+        if label_idx < 0 or label_idx >= self.n_labels:
+            return
+        
+        # Insert divider (use first available slot)
+        if self.divider1_idx == -1:
+            self.divider1_idx = label_idx
+            print(f"Inserted divider 1 at index {label_idx} (time: {self.position:.2f}s)")
+        elif self.divider2_idx == -1:
+            self.divider2_idx = label_idx
+            print(f"Inserted divider 2 at index {label_idx} (time: {self.position:.2f}s)")
+        else:
+            # Both dividers used, replace the first one
+            self.divider1_idx = label_idx
+            print(f"Replaced divider 1 at index {label_idx} (time: {self.position:.2f}s)")
+        
+        self.update_divider_display()
+
+    def update_divider_display(self):
+        """Update divider lines on the plot"""
+        # Remove existing divider lines
+        for line in self.divider_lines:
+            line.remove()
+        self.divider_lines.clear()
+        
+        # Add divider lines
+        if self.divider1_idx >= 0:
+            time1 = self.divider1_idx / self.labels_per_second
+            line1 = self.ax2.axvline(time1, color='orange', linewidth=2, linestyle='--', alpha=0.8)
+            self.divider_lines.append(line1)
+        
+        if self.divider2_idx >= 0:
+            time2 = self.divider2_idx / self.labels_per_second
+            line2 = self.ax2.axvline(time2, color='purple', linewidth=2, linestyle='--', alpha=0.8)
+            self.divider_lines.append(line2)
+        
+        self.canvas.draw()
     
     def on_position_change(self, value):
         """Handle position scale change"""
