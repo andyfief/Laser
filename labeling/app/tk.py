@@ -148,10 +148,11 @@ class TkinterSongLabeler:
             (1, "1: Vocals"), 
             (2, "2: Ambient"),
             (3, "3: Buildup"),
-            (4, "4: Pre-Drop"),
-            (5, "5: Drop"),
+            (4, "4: Buildup 2"),
+            (5, "5: Pre-Drop"),
             (6, "6: Drop2"),
-            (7, "7: Hold")
+            (7, "7: Drop"),
+            (8, "8: Hold")
         ]
 
         for i, (value, text) in enumerate(label_buttons):
@@ -287,7 +288,7 @@ class TkinterSongLabeler:
     
     def load_existing_labels(self):
         """Load existing labels if the npz file exists"""
-        output_path = Path("labels") / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
+        output_path = Path("labels") / Path(self.audio_file).with_suffix('.labels.npz').name
         
         if output_path.exists():
             try:
@@ -303,7 +304,7 @@ class TkinterSongLabeler:
     def on_label_type_change(self):
         """Handle label type change"""
         self.current_label_set = self.label_type_var.get()
-        max_label = 9 if self.current_label_set == "speed" else 7
+        max_label = 9 if self.current_label_set == "speed" else 8
         self.label_spinbox.config(to=max_label)
         if self.current_label_var.get() > max_label:
             self.current_label_var.set(max_label)
@@ -315,7 +316,7 @@ class TkinterSongLabeler:
 
     def set_quick_label(self, label_value):
         """Set current label from quick buttons"""
-        max_label = 9 if self.current_label_set == "speed" else 7
+        max_label = 9 if self.current_label_set == "speed" else 8
         if label_value <= max_label:
             self.current_label = label_value
             self.current_label_var.set(label_value)
@@ -353,7 +354,7 @@ class TkinterSongLabeler:
         self.ax2.set_ylabel(f'{label_type_str} Labels')
         self.ax2.set_xlabel('Time (s)')
         
-        y_max = 9.5 if self.current_label_set == "speed" else 7.5
+        y_max = 9.5 if self.current_label_set == "speed" else 8.5
         self.ax2.set_ylim(0, y_max)
         self.ax2.grid(True, alpha=0.3)
         
@@ -365,7 +366,7 @@ class TkinterSongLabeler:
         if self.ax2 and self.label_line:
             label_type_str = "Speed" if self.current_label_set == "speed" else "Pattern"
             self.ax2.set_ylabel(f'{label_type_str} Labels')
-            y_max = 9.5 if self.current_label_set == "speed" else 7.5
+            y_max = 9.5 if self.current_label_set == "speed" else 8.5
             self.ax2.set_ylim(0, y_max)
             
             # Update the line data
@@ -466,7 +467,7 @@ class TkinterSongLabeler:
             self.root.quit()
         elif key.isdigit():
             digit = int(key)
-            max_label = 9 if self.current_label_set == "speed" else 7
+            max_label = 9 if self.current_label_set == "speed" else 8
             if digit <= max_label:
                 self.current_label = digit
                 self.current_label_var.set(digit)
@@ -553,7 +554,7 @@ class TkinterSongLabeler:
         end_time = (end_idx + 1) / self.labels_per_second  # +1 to include the end point
         
         # Create highlight rectangle
-        y_max = 9.5 if self.current_label_set == "speed" else 7.5
+        y_max = 9.5 if self.current_label_set == "speed" else 8.5
         self.plateau_highlight = self.ax2.axvspan(start_time, end_time, 
                                                 alpha=0.3, color='yellow', 
                                                 zorder=10)
@@ -613,7 +614,7 @@ class TkinterSongLabeler:
         def apply_change():
             try:
                 new_value = int(new_value_var.get())
-                max_label = 9 if self.current_label_set == "speed" else 7
+                max_label = 9 if self.current_label_set == "speed" else 8
                 if 0 <= new_value <= max_label:
                     self.apply_plateau_change(start_idx, end_idx, new_value)
                     popup.destroy()
@@ -656,13 +657,13 @@ class TkinterSongLabeler:
         self.pattern_labels = self.speed_labels.copy()
         
         # Clamp pattern labels to valid range (0-7)
-        self.pattern_labels = np.clip(self.pattern_labels, 0, 7)
+        self.pattern_labels = np.clip(self.pattern_labels, 0, 8)
         
         # Update display
         self.update_plot_labels()
         self.update_copy_button_states()
         
-        print("Copied speed labels to pattern labels (clamped to 0-7)")
+        print("Copied speed labels to pattern labels (clamped to 0-8)")
 
     def copy_pattern_to_speed(self):
         """Copy pattern labels to speed labels with confirmation"""
