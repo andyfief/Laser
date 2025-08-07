@@ -137,7 +137,7 @@ class TkinterSongLabeler:
         self.label_spinbox.grid(row=0, column=1, padx=(0, 10))
         
         ttk.Button(label_control_frame, text="Apply Label", command=self.apply_label).grid(row=0, column=2, padx=(0, 10))
-        ttk.Button(label_control_frame, text="Save Labels", command=self.save_mfccs_and_labels).grid(row=0, column=3)
+        ttk.Button(label_control_frame, text="Save Labels", command=self.save_labels).grid(row=0, column=3)
 
         quick_label_frame = ttk.LabelFrame(control_frame, text="Quick Labels", padding="5")
         quick_label_frame.grid(row=3, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
@@ -461,7 +461,7 @@ class TkinterSongLabeler:
         if key == 'space':
             self.toggle_play()
         elif key == 'Escape':
-            self.save_mfccs_and_labels()
+            self.save_labels()
         elif key == 'q':
             self.root.quit()
         elif key.isdigit():
@@ -869,8 +869,8 @@ class TkinterSongLabeler:
         if start_idx < end_idx:
             current_labels[start_idx:end_idx] = self.current_label
 
-    def save_mfccs_and_labels(self):
-        """Save MFCCs and labels to a compressed .npz file"""
+    def save_labels(self):
+        """Save labels and waveform to a compressed .npz file"""
         if not self.audio_file:
             messagebox.showwarning("Warning", "No audio loaded")
             return
@@ -880,38 +880,25 @@ class TkinterSongLabeler:
             labels_dir = Path("labels")
             labels_dir.mkdir(exist_ok=True)
             
-            output_path = labels_dir / Path(self.audio_file).with_suffix('.mfcc_labels.npz').name
+            output_path = labels_dir / Path(self.audio_file).with_suffix('.labels.npz').name
             
             # Check if file already exists
             existing_data = {}
             if output_path.exists():
                 existing_data = dict(np.load(output_path))
             
-            # Extract MFCC features if not already present
-            # if 'mfcc' not in existing_data:
-            #     hop_length = int(self.sr / self.labels_per_second)
-            #     mfcc = librosa.feature.mfcc(y=self.y, sr=self.sr, n_mfcc=20, hop_length=hop_length)
-            #     X = mfcc.T  # Shape: (num_frames, 20)
-                
-            #     # Ensure MFCC and labels have same length
-            #     min_len = min(len(X), self.n_labels)
-            #     X = X[:min_len]
-            #     self.speed_labels = self.speed_labels[:min_len]
-            #     self.pattern_labels = self.pattern_labels[:min_len]
-                
-            #    existing_data['mfcc'] = X
-            
-            # Add current labels
+            existing_data['waveform'] = self.y
+            existing_data['sample_rate'] = self.sr
             existing_data['speed_labels'] = self.speed_labels
             existing_data['pattern_labels'] = self.pattern_labels
             
             # Save everything
             np.savez_compressed(output_path, **existing_data)
             
-            messagebox.showinfo("Success", f"MFCCs ARE NOT CURRENTLY BEING SAVED. labels saved to:\n{output_path}")
+            messagebox.showinfo("Success", f"labels saved to:\n{output_path}")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save MFCCs and labels:\n{str(e)}")
+            messagebox.showerror("Error", f"Failed to save labels:\n{str(e)}")
 
 def main():
     root = tk.Tk()
