@@ -148,10 +148,10 @@ class TkinterSongLabeler:
             (1, "1: Vocals"), 
             (2, "2: Ambient"),
             (3, "3: Buildup"),
-            (4, "4: Buildup 2"),
+            (4, "4: Buildup2"),
             (5, "5: Pre-Drop"),
-            (6, "6: Drop2"),
-            (7, "7: Drop"),
+            (6, "6: Drop"),
+            (7, "7: Drop2"),
             (8, "8: Hold")
         ]
 
