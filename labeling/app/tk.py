@@ -33,12 +33,12 @@ class TkinterSongLabeler:
         # Plateau selection state
         self.selected_plateau = None  # (start_idx, end_idx, label_value)
         self.plateau_highlight = None  # matplotlib patch for highlighting
-        self.edit_popup = None  # reference to popup window
 
-        #Plateau Dividers
-        self.divider1_idx = -1  # First divider index
-        self.divider2_idx = -1  # Second divider index
+        # Plateau Dividers - Updated for multiple dividers
+        self.dividers = []  # List of divider indices
+        self.selected_divider = None  # Index of currently selected divider in self.dividers list
         self.divider_lines = []  # Visual divider lines on plot
+        self.divider_colors = ['orange', 'purple', 'cyan', 'magenta', 'yellow', 'lime', 'pink', 'brown']
                 
         # Playback state
         self.is_playing = False
@@ -184,13 +184,11 @@ class TkinterSongLabeler:
         # Divider controls frame
         divider_frame = ttk.LabelFrame(control_frame, text="Divider Controls", padding="5")
         divider_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
-        # First row of divider buttons
+
         ttk.Button(divider_frame, text="Insert Divider", command=self.insert_divider).grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(divider_frame, text="Reset All Dividers", command=lambda: self.reset_dividers(1)).grid(row=0, column=1, padx=(0, 10))
-        # Second row of divider buttons
-        ttk.Button(divider_frame, text="Reset Orange Div", command=lambda: self.reset_dividers(2)).grid(row=1, column=0, padx=(0, 10))
-        ttk.Button(divider_frame, text="Reset Purple Div", command=lambda: self.reset_dividers(3)).grid(row=1, column=1, padx=(0, 10))
-        
+        self.selected_divider_label = ttk.Label(divider_frame, text="No divider selected")
+        self.selected_divider_label.grid(row=0, column=1, padx=(10, 0))
+                
         # Status bar
         self.status_label = ttk.Label(main_frame, text="Ready - Load an audio file to begin")
         self.status_label.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
@@ -203,7 +201,9 @@ class TkinterSongLabeler:
         • 0-9: Set label (Speed mode) / 0-7: Set label (Pattern mode)
         • Left click on plot: Seek to position 
         • Right click on labels plot: Select plateau for editing 
-        • D: Deselect current plateau
+        • D: Deselect current plateau or current divider
+        • K: Delete current divider
+        • R: Reset all dividers
         • I: Insert divider at current position 
         • ESC: Save labels 
         • Q: Quit
@@ -224,6 +224,8 @@ class TkinterSongLabeler:
         
         # Canvas click binding
         self.canvas.mpl_connect('button_press_event', self.on_canvas_click)
+        self.canvas.mpl_connect('button_press_event', self.on_divider_click)
+        
     
     def load_audio_file(self):
         """Load audio file dialog"""
@@ -401,6 +403,86 @@ class TkinterSongLabeler:
         if self.is_playing and abs(new_position - old_position) > 0.1:
             self.stop_playback()
             self.play_from_position()
+
+    def on_divider_click(self, event):
+        """Handle clicking on dividers to select them"""
+        if event.inaxes == self.ax2 and event.xdata is not None and event.button == 1:  # Left click
+            # Check if click is near any divider
+            click_time = event.xdata
+            closest_divider = None
+            min_distance = float('inf')
+            
+            for i, divider_idx in enumerate(self.dividers):
+                divider_time = divider_idx / self.labels_per_second
+                distance = abs(click_time - divider_time)
+                if distance < 0.5 and distance < min_distance:  # Within 0.5 second tolerance
+                    min_distance = distance
+                    closest_divider = i
+            
+            if closest_divider is not None:
+                self.selected_divider = closest_divider
+                self.update_selected_divider_display()
+            else:
+                # If not clicking on a divider, deselect
+                self.selected_divider = None
+                self.update_selected_divider_display()
+
+    def update_selected_divider_display(self):
+        """Update the display to show which divider is selected"""
+        if self.selected_divider is not None:
+            divider_idx = self.dividers[self.selected_divider]
+            time_pos = divider_idx / self.labels_per_second
+            self.selected_divider_label.config(
+                text=f"Selected: Divider {self.selected_divider + 1} at {time_pos:.2f}s"
+            )
+        else:
+            self.selected_divider_label.config(text="No divider selected")
+        
+        # Update visual display
+        self.update_divider_display()
+
+    def move_selected_divider(self, direction):
+        """Move the selected divider by one frame in the given direction"""
+        if self.selected_divider is None or not self.audio_file:
+            return
+        
+        # Calculate frame size (1/labels_per_second)
+        frame_size = 1  # 1 label index = 1 frame
+        
+        # Get current divider index
+        current_idx = self.dividers[self.selected_divider]
+        new_idx = current_idx + (direction * frame_size)
+        
+        # Clamp to valid range
+        new_idx = max(0, min(new_idx, self.n_labels - 1))
+        
+        # Update divider position
+        self.dividers[self.selected_divider] = new_idx
+        
+        # Update audio position to the new divider location
+        new_time = new_idx / self.labels_per_second
+        self.position = new_time
+        
+        # If playing, restart from new position
+        if self.is_playing:
+            self.stop_playback()
+            self.play_from_position()
+        
+        # Update displays
+        self.update_selected_divider_display()
+        self.update_divider_display()
+
+    def delete_selected_divider(self):
+        """Delete the currently selected divider"""
+        if self.selected_divider is not None:
+            # Remove the divider
+            removed_idx = self.dividers.pop(self.selected_divider)
+            print(f"Deleted divider at index {removed_idx}")
+            
+            # Clear selection
+            self.selected_divider = None
+            self.update_selected_divider_display()
+            self.update_divider_display()
     
     def update_display(self):
         """Update display periodically (10fps)"""
@@ -474,17 +556,36 @@ class TkinterSongLabeler:
                 if self.auto_apply:
                     self.apply_label()
         elif key == 'Left':
+            if self.selected_divider is not None:
+                # Move selected divider left
+                self.move_selected_divider(-1)
             if event.state & 0x0001: 
                 self.skip_time(-3) # skip 3 seconds
             else:
                 self.skip_time(-0.2)  # Skip back 1/5 second
         elif key == 'Right':
+            if self.selected_divider is not None:
+                # Move selected divider right
+                self.move_selected_divider(1)
             if event.state & 0x0001:
                 self.skip_time(3)
             else:
                 self.skip_time(0.2)    
         elif key == 'd':
-             self.clear_plateau_selection()
+            if self.selected_divider is not None:
+                # Deselect divider
+                self.selected_divider = None
+                self.update_selected_divider_display()
+            else:
+                # Clear plateau selection (existing functionality)
+                self.clear_plateau_selection()
+        elif key == 'k':
+            # Delete selected divider
+            if self.selected_divider is not None:
+                self.delete_selected_divider()
+        elif key == 'r':
+            # Reset all dividers
+            self.reset_dividers()
         elif key == 'i':
             self.insert_divider()
     
@@ -516,13 +617,8 @@ class TkinterSongLabeler:
         
         label_value = current_labels[label_idx]
         
-        # Get divider positions (sorted)
-        dividers = []
-        if self.divider1_idx >= 0:
-            dividers.append(self.divider1_idx)
-        if self.divider2_idx >= 0:
-            dividers.append(self.divider2_idx)
-        dividers.sort()
+        # Get sorted divider positions (sorted)
+        dividers = sorted(self.dividers)
         
         # Find start of plateau (go backwards until value changes or hit a divider)
         start_idx = label_idx
@@ -539,7 +635,6 @@ class TkinterSongLabeler:
             end_idx += 1 # move to the position first since we'ere checking the end
             if end_idx in dividers:
                 break
-            
         
         return (start_idx, end_idx, label_value)
     
@@ -638,14 +733,11 @@ class TkinterSongLabeler:
         popup.bind('<Return>', lambda e: apply_change())
         popup.bind('<Escape>', lambda e: cancel())
 
-    def reset_dividers(self, mode: int):
-        if mode == 1: # reset both
-            self.divider1_idx = -1
-            self.divider2_idx = -1
-        if mode == 2: # reset yellow
-            self.divider1_idx = -1
-        if mode == 3: # reset purple
-            self.divider2_idx = -1
+    def reset_dividers(self):
+        """Clear all dividers"""
+        self.dividers.clear()
+        self.selected_divider = None
+        self.update_selected_divider_display()
         self.update_divider_display()
 
     def copy_speed_to_pattern(self):
@@ -735,18 +827,16 @@ class TkinterSongLabeler:
         if label_idx < 0 or label_idx >= self.n_labels:
             return
         
-        # Insert divider (use first available slot)
-        if self.divider1_idx == -1:
-            self.divider1_idx = label_idx
-            print(f"Inserted divider 1 at index {label_idx} (time: {self.position:.2f}s)")
-        elif self.divider2_idx == -1:
-            self.divider2_idx = label_idx
-            print(f"Inserted divider 2 at index {label_idx} (time: {self.position:.2f}s)")
-        else:
-            # Both dividers used, replace the first one
-            self.divider1_idx = label_idx
-            print(f"Replaced divider 1 at index {label_idx} (time: {self.position:.2f}s)")
+        # Check if divider already exists at this position
+        if label_idx in self.dividers:
+            print(f"Divider already exists at index {label_idx}")
+            return
         
+        # Add new divider
+        self.dividers.append(label_idx)
+        self.dividers.sort()  # Keep dividers sorted
+        
+        print(f"Inserted divider at index {label_idx} (time: {self.position:.2f}s)")
         self.update_divider_display()
 
     def update_divider_display(self):
@@ -757,15 +847,19 @@ class TkinterSongLabeler:
         self.divider_lines.clear()
         
         # Add divider lines
-        if self.divider1_idx >= 0:
-            time1 = self.divider1_idx / self.labels_per_second
-            line1 = self.ax2.axvline(time1, color='orange', linewidth=2, linestyle='--', alpha=0.8)
-            self.divider_lines.append(line1)
-        
-        if self.divider2_idx >= 0:
-            time2 = self.divider2_idx / self.labels_per_second
-            line2 = self.ax2.axvline(time2, color='purple', linewidth=2, linestyle='--', alpha=0.8)
-            self.divider_lines.append(line2)
+        for i, divider_idx in enumerate(self.dividers):
+            time_pos = divider_idx / self.labels_per_second
+            color = self.divider_colors[i % len(self.divider_colors)]
+            
+            # Make selected divider thicker and more opaque
+            if i == self.selected_divider:
+                line = self.ax2.axvline(time_pos, color=color, linewidth=2, 
+                                    linestyle='-', alpha=1.0, zorder=20)
+            else:
+                line = self.ax2.axvline(time_pos, color=color, linewidth=1, 
+                                    linestyle='-', alpha=0.8, zorder=15)
+            
+            self.divider_lines.append(line)
         
         self.canvas.draw()
     
